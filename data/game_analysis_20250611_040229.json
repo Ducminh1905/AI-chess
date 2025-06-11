@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-06-11T04:02:29.680254",
+  "final_fen": "rnb2bnr/ppp1pkpp/8/3q4/8/8/PPPPPPPP/R1BQKB1R w KQ - 0 6",
+  "move_history": [
+    "g1f3",
+    "f3e5",
+    "e5f7",
+    "b1c3",
+    "c3d5"
+  ],
+  "evaluation_history": [
+    -131,
+    -264,
+    -377,
+    -463
+  ],
+  "result": "You surrendered! Black wins!",
+  "game_length": 5,
+  "opening_used": 5,
+  "final_evaluation": -463
+}
