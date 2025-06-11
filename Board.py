@@ -81,25 +81,34 @@ class GUI_Board:
         self.squares = self.generate_squares()
         self.setup_board()
         
-        # Animation variables - FIXED
+        # Animation variables
         self.animating_piece = None
         self.animating_piece_img = None
         self.animation_start_pos = None
         self.animation_target_pos = None
         self.animation_progress = 0.0
-        self.animation_speed = 0.15  # Slightly faster
+        self.animation_speed = 0.15
         self.is_animating = False
-        self.animation_source_square = None  # Track source square
+        self.animation_source_square = None
+        
+        # Last move highlighting
+        self.last_move_source = None
+        self.last_move_target = None
         
         # Enhanced features
         self.transposition_table = TranspositionTable()
         self.move_history = MoveHistory()
         self.evaluation_history = []
         
+        # Undo functionality
+        self.board_states = []  # Stack of previous board states
+        self.gui_states = []    # Stack of previous GUI states
+        self.max_undo_states = 50  # Increase limit for more undo capability
+        
         # Time management
-        self.time_white = 300.0  # 5 minutes
-        self.time_black = 300.0  # 5 minutes
-        self.increment = 3.0     # 3 seconds per move
+        self.time_white = 300.0
+        self.time_black = 300.0
+        self.increment = 3.0
 
     def generate_squares(self):
         output = set()
@@ -181,6 +190,256 @@ class GUI_Board:
             return res
         return False
     
+    def set_last_move_highlight(self, source_pos, target_pos):
+        """Set highlighting for the last move"""
+        # Clear previous last move highlights
+        for square in self.squares:
+            square.last_move = False
+        
+        # Set new last move highlights
+        if source_pos:
+            source_square = self.get_square_from_pos(source_pos)
+            if source_square:
+                source_square.last_move = True
+                self.last_move_source = source_square
+                print(f"Highlighting last move source: {source_pos}")
+        
+        if target_pos:
+            target_square = self.get_square_from_pos(target_pos)
+            if target_square:
+                target_square.last_move = True
+                self.last_move_target = target_square
+                print(f"Highlighting last move target: {target_pos}")
+    
+    def clear_last_move_highlight(self):
+        """Clear all last move highlights"""
+        for square in self.squares:
+            square.last_move = False
+        self.last_move_source = None
+        self.last_move_target = None
+
+    def save_board_state(self):
+        """Save current board state for undo functionality - FIXED VERSION"""
+        # Save chess board state with move history for proper restoration
+        board_state = {
+            'fen': self.chess_board.fen(),
+            'turn': self.turn,
+            'move_stack': [move.uci() for move in self.chess_board.move_stack],  # Save full move history
+            'last_move_source': self.last_move_source.pos if self.last_move_source else None,
+            'last_move_target': self.last_move_target.pos if self.last_move_target else None
+        }
+        
+        # Save GUI state (piece positions) - sync with chess board
+        gui_state = {}
+        for file in range(8):
+            for rank in range(8):
+                chess_square = chess.square(file, rank)
+                piece = self.chess_board.piece_at(chess_square)
+                if piece:
+                    gui_pos = (file, 7 - rank)  # Convert to GUI coordinates
+                    piece_data = {
+                        'type': piece.piece_type,
+                        'color': piece.color,
+                        'move_count': 0  # We'll calculate this if needed
+                    }
+                    gui_state[gui_pos] = piece_data
+        
+        self.board_states.append(board_state)
+        self.gui_states.append(gui_state)
+        
+        # Keep reasonable number of states for undo capability
+        if len(self.board_states) > self.max_undo_states:
+            self.board_states.pop(0)
+            self.gui_states.pop(0)
+        
+        print(f"Saved board state. Total states: {len(self.board_states)}")
+        print(f"Saved FEN: {board_state['fen']}")
+        print(f"Saved turn: {'White' if board_state['turn'] == chess.WHITE else 'Black'}")
+        print(f"Saved pieces: {len(gui_state)}")
+    
+    def undo_last_move(self):
+        """Undo back to player's turn - COMPLETELY REWRITTEN"""
+        print(f"UNDO DEBUG: Current states available: {len(self.board_states)}")
+        print(f"UNDO DEBUG: Current FEN before undo: {self.chess_board.fen()}")
+        
+        if len(self.board_states) < 2:
+            print("Need at least 2 moves to undo!")
+            return None
+        
+        try:
+            # Remove last 2 states (AI move + Player move)
+            self.board_states.pop()  # Remove AI state
+            self.gui_states.pop()
+            
+            self.board_states.pop()  # Remove Player state  
+            self.gui_states.pop()
+            
+            # Get target state (before player's move)
+            if len(self.board_states) > 0:
+                target_state = self.board_states[-1]
+                target_gui = self.gui_states[-1]
+            else:
+                # Initial position
+                target_state = {
+                    'fen': chess.Board().fen(),
+                    'turn': chess.WHITE,
+                    'move_stack': [],
+                    'last_move_source': None,
+                    'last_move_target': None
+                }
+                target_gui = self._get_initial_gui_state()
+            
+            print(f"UNDO DEBUG: Target FEN: {target_state['fen']}")
+            
+            # CRITICAL: Restore chess board from FEN and sync turn properly
+            self.chess_board = chess.Board(target_state['fen'])
+            
+            # IMPORTANT: Sync GUI turn with chess board turn (don't force)
+            self.turn = self.chess_board.turn
+            print(f"UNDO DEBUG: Synced turn with chess board: {'White' if self.turn == chess.WHITE else 'Black'}")
+            
+            # If it's AI turn after undo, we need to let AI play
+            if self.turn == chess.BLACK:
+                print("UNDO DEBUG: WARNING - After undo it's AI turn, AI will play automatically")
+            else:
+                print("UNDO DEBUG: After undo it's player turn")
+            
+            # Clear all GUI squares
+            for square in self.squares:
+                square.occupying_piece = None
+                square.last_move = False
+                square.highlight = False
+                square.check = False
+                square.checkmate = False
+                if hasattr(square, 'is_move_indicator'):
+                    delattr(square, 'is_move_indicator')
+            
+            # Restore pieces by reading directly from chess board (ensure perfect sync)
+            pieces_restored = 0
+            for chess_square in chess.SQUARES:
+                piece = self.chess_board.piece_at(chess_square)
+                if piece:
+                    # Convert chess coordinates to GUI coordinates
+                    file = chess.square_file(chess_square)
+                    rank = chess.square_rank(chess_square)
+                    gui_pos = (file, 7 - rank)  # Convert chess rank to GUI y-coordinate
+                    
+                    gui_square = self.get_square_from_pos(gui_pos)
+                    if gui_square:
+                        # Create new piece with correct coordinates
+                        new_piece = Piece(gui_pos, piece.piece_type, piece.color, self)
+                        gui_square.occupying_piece = new_piece
+                        pieces_restored += 1
+                        
+                        # Ensure piece coordinate system is correct
+                        new_piece.coord = get_coord_from_pos(gui_pos[0], gui_pos[1])
+                        
+            print(f"UNDO DEBUG: Restored {pieces_restored} pieces with correct coordinates")
+            
+            # CRITICAL: Verify piece placement by checking a few key pieces
+            test_squares = [chess.A1, chess.E1, chess.A8, chess.E8]  # Corners and kings
+            for test_square in test_squares:
+                piece = self.chess_board.piece_at(test_square)
+                if piece:
+                    file = chess.square_file(test_square)
+                    rank = chess.square_rank(test_square)
+                    gui_pos = (file, 7 - rank)
+                    gui_square = self.get_square_from_pos(gui_pos)
+                    if gui_square and gui_square.occupying_piece:
+                        coord_name = chess.square_name(test_square)
+                        print(f"UNDO DEBUG: Verified {piece.piece_type} at {coord_name} -> GUI pos {gui_pos}")
+            
+            # Restore last move highlighting if available
+            if target_state.get('last_move_source') and target_state.get('last_move_target'):
+                self.set_last_move_highlight(
+                    target_state['last_move_source'], 
+                    target_state['last_move_target']
+                )
+            else:
+                self.clear_last_move_highlight()
+            
+            # Reset all interactive state
+            self.selected_piece = None
+            self.is_animating = False
+            self.animating_piece = None
+            self.animating_piece_img = None
+            self.animation_source_square = None
+            self.animation_progress = 0.0
+            
+            print(f"UNDO DEBUG: Final FEN: {self.chess_board.fen()}")
+            print(f"UNDO DEBUG: Final turn: {'White' if self.turn == chess.WHITE else 'Black'}")
+            print(f"UNDO DEBUG: States remaining: {len(self.board_states)}")
+            
+            # CRITICAL: Test legal moves generation
+            legal_moves = list(self.chess_board.legal_moves)
+            print(f"UNDO DEBUG: Legal moves available: {len(legal_moves)}")
+            
+            if len(legal_moves) > 0:
+                # Show first few legal moves for debugging
+                sample_moves = [move.uci() for move in legal_moves[:5]]
+                print(f"UNDO DEBUG: Sample legal moves: {sample_moves}")
+            
+            # Verify the board is playable
+            if len(legal_moves) == 0:
+                print("ERROR: No legal moves available after undo!")
+                return None
+            
+            # CRITICAL: Verify GUI can find pieces for legal moves
+            movable_pieces = 0
+            for square in self.squares:
+                if (square.occupying_piece is not None and 
+                    square.occupying_piece.color == self.turn):
+                    piece_moves = square.occupying_piece.get_moves()
+                    if len(piece_moves) > 0:
+                        movable_pieces += 1
+            
+            print(f"UNDO DEBUG: Movable pieces found: {movable_pieces}")
+            
+            if movable_pieces == 0:
+                print("ERROR: No movable pieces found in GUI after undo!")
+                return None
+            
+            return 2
+            
+        except Exception as e:
+            print(f"UNDO ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _get_initial_gui_state(self):
+        """Get initial GUI state for reset"""
+        gui_state = {}
+        # Initial chess position
+        initial_config = [
+            ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
+            ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
+            ['','','','','','','',''],
+            ['','','','','','','',''],
+            ['','','','','','','',''],
+            ['','','','','','','',''],
+            ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
+            ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
+        ]
+        
+        for y, row in enumerate(initial_config):
+            for x, piece_str in enumerate(row):
+                if piece_str != '':
+                    pos = (x, y)
+                    color = chess.WHITE if piece_str[0] == 'w' else chess.BLACK
+                    piece_type = {
+                        'P': chess.PAWN, 'R': chess.ROOK, 'N': chess.KNIGHT,
+                        'B': chess.BISHOP, 'Q': chess.QUEEN, 'K': chess.KING
+                    }[piece_str[1]]
+                    
+                    gui_state[pos] = {
+                        'type': piece_type,
+                        'color': color,
+                        'move_count': 0
+                    }
+        
+        return gui_state
+    
     def get_game_phase(self):
         """Determine game phase for evaluation adjustments"""
         piece_count = len(self.chess_board.piece_map())
@@ -227,7 +486,7 @@ class GUI_Board:
         }
     
     def start_animation(self, piece, start_pos, target_pos):
-        """Start animation for piece movement - FIXED"""
+        """Start animation for piece movement"""
         print(f"Starting animation: {piece} from {start_pos} to {target_pos}")
         
         # Store animation data
@@ -238,11 +497,11 @@ class GUI_Board:
         self.animation_progress = 0.0
         self.is_animating = True
         
-        # IMPORTANT: Store source square to prevent piece disappearing
+        # Store source square to prevent piece disappearing
         self.animation_source_square = self.get_square_from_pos(start_pos)
     
     def update_animation(self):
-        """Update animation progress - FIXED"""
+        """Update animation progress"""
         if self.is_animating:
             self.animation_progress += self.animation_speed
             
@@ -250,15 +509,15 @@ class GUI_Board:
                 self.animation_progress = 1.0
                 self.is_animating = False
                 
-                # CLEANUP: Clear animation data
+                # Clear animation data
                 self.animating_piece = None
                 self.animating_piece_img = None
                 self.animation_source_square = None
                 
-                print("Animation completed")
+                print("Animation completed and cleared")
     
     def get_animated_position(self):
-        """Get current animated position using smooth easing - FIXED"""
+        """Get current animated position using smooth easing"""
         if not self.is_animating or self.animating_piece is None:
             return None
         
@@ -313,7 +572,7 @@ class GUI_Board:
         # Create border surface
         border_surface = pygame.Surface((self.width + 2*border_width, self.height + 2*border_width))
         
-        # Gradient background for border
+        # Simple gradient background for border
         for y in range(border_surface.get_height()):
             ratio = y / border_surface.get_height()
             r = int(139 + (101 - 139) * ratio)
@@ -321,7 +580,7 @@ class GUI_Board:
             b = int(78 + (33 - 78) * ratio)
             pygame.draw.line(border_surface, (r, g, b), (0, y), (border_surface.get_width(), y))
         
-        # Multiple border layers for depth
+        # Simple border layers
         colors = [(101, 67, 33), (139, 116, 78), (160, 140, 100)]
         widths = [6, 3, 1]
         for color, width in zip(colors, widths):
@@ -373,7 +632,7 @@ class GUI_Board:
                 square.highlight = True
                 square.is_move_indicator = True
         
-        # Draw squares with enhanced effects - FIXED RENDERING
+        # Draw squares and pieces
         for square in self.squares:
             # Check status for kings
             if square.occupying_piece is not None:
@@ -390,37 +649,26 @@ class GUI_Board:
             else:
                 square.check = square.checkmate = False
             
-            # FIXED: Better logic for determining when to draw pieces
-            draw_piece = True
+            # During animation, don't draw piece at source position
+            should_draw_piece = True
             
-            # Only hide piece if it's currently being animated AND it's at the source square
             if (self.is_animating and 
-                self.animating_piece and 
-                self.animation_source_square and
-                square == self.animation_source_square):
-                draw_piece = False
-                print(f"Hiding piece at source square: {square.pos}")
+                self.animation_source_square is not None and
+                square.pos == self.animation_source_square.pos):
+                should_draw_piece = False
+                print(f"Animation active - hiding piece at {square.pos}")
             
-            # Draw the square (with or without piece)
-            square.draw(main_surface, draw_piece)
+            # Draw the square
+            square.draw(main_surface, should_draw_piece)
         
-        # Draw animated piece with enhanced effects - FIXED
+        # Draw animated piece
         if self.is_animating and self.animating_piece and self.animating_piece_img:
             animated_pos = self.get_animated_position()
             if animated_pos:
-                # Enhanced shadow for animated piece
                 piece_rect = self.animating_piece_img.get_rect()
                 piece_rect.center = animated_pos
                 
-                # Multiple shadow layers for depth
-                shadow_offsets = [(4, 4), (3, 3), (2, 2)]
-                shadow_alphas = [20, 30, 40]
-                for offset, alpha in zip(shadow_offsets, shadow_alphas):
-                    shadow_surface = pygame.Surface((piece_rect.width, piece_rect.height), pygame.SRCALPHA)
-                    shadow_surface.fill((0, 0, 0, alpha))
-                    main_surface.blit(shadow_surface, (piece_rect.topleft[0] + offset[0], piece_rect.topleft[1] + offset[1]))
-                
-                # Draw the animated piece
+                # Draw animated piece without shadows
                 main_surface.blit(self.animating_piece_img, piece_rect.topleft)
                 print(f"Drawing animated piece at: {animated_pos}")
         
@@ -494,22 +742,35 @@ class Piece(chess.Piece):
         if self.piece_type == chess.PAWN and abs(self.x - square.x) == 1 and abs(self.y - square.y) == 1 and square.occupying_piece == None:
             mark_en_passant = True
         
-        if square in self.get_valid_moves() or force:           
+        if square in self.get_valid_moves() or force:
+            # Save state before making move (for undo) - NOW FOR BOTH PLAYER AND AI
+            self.gui_board.save_board_state()
+            
             prev_square = self.gui_board.get_square_from_pos(self.pos)
             move_cur = self.coord
             
-            # FIXED: Start animation before updating positions
-            if not force:
-                print(f"Starting move animation: {self.coord} -> {get_coord_from_pos(*square.pos)}")
-                self.gui_board.start_animation(self, self.pos, square.pos)
+            # Store positions for last move highlighting
+            source_pos = self.pos
+            target_pos = square.pos
             
-            # Update piece position
+            # Different approach for player vs bot moves
+            if not force:
+                print(f"Player move with animation: {self.coord} -> {get_coord_from_pos(*square.pos)}")
+                
+                # Start animation BEFORE any position updates
+                self.gui_board.start_animation(self, self.pos, square.pos)
+                
+            # Update piece position (same for both player and bot)
             self.pos, self.x, self.y = square.pos, square.x, square.y
             self.coord = get_coord_from_pos(*self.pos)
             
-            # Update board state
+            # Update board state (same for both player and bot)
             prev_square.occupying_piece = None
             square.occupying_piece = self
+            
+            # Set last move highlighting (clear old, set new)
+            self.gui_board.set_last_move_highlight(source_pos, target_pos)
+            
             self.gui_board.selected_piece = None
             move_new = self.coord
             self.move_count += 1
