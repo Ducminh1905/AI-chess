@@ -258,28 +258,32 @@ class GUI_Board:
         print(f"Saved pieces: {len(gui_state)}")
     
     def undo_last_move(self):
-        """Undo back to player's turn - COMPLETELY REWRITTEN"""
+        """Undo back to player's turn - COMPLETELY REWRITTEN AND FIXED"""
         print(f"UNDO DEBUG: Current states available: {len(self.board_states)}")
         print(f"UNDO DEBUG: Current FEN before undo: {self.chess_board.fen()}")
+        print(f"UNDO DEBUG: Current turn before undo: {'White' if self.turn == chess.WHITE else 'Black'}")
         
         if len(self.board_states) < 2:
-            print("Need at least 2 moves to undo!")
+            print("UNDO ERROR: Need at least 2 moves to undo!")
             return None
         
         try:
-            # Remove last 2 states (AI move + Player move)
-            self.board_states.pop()  # Remove AI state
-            self.gui_states.pop()
+            # Remove the current state and AI's last move state
+            if len(self.board_states) >= 1:
+                self.board_states.pop()  # Remove current state
+                self.gui_states.pop()
             
-            self.board_states.pop()  # Remove Player state  
-            self.gui_states.pop()
+            if len(self.board_states) >= 1:
+                self.board_states.pop()  # Remove AI's move state  
+                self.gui_states.pop()
             
-            # Get target state (before player's move)
+            # Get the target state (player's position before their last move)
             if len(self.board_states) > 0:
                 target_state = self.board_states[-1]
                 target_gui = self.gui_states[-1]
+                print(f"UNDO DEBUG: Using saved state with FEN: {target_state['fen']}")
             else:
-                # Initial position
+                # Go back to initial position
                 target_state = {
                     'fen': chess.Board().fen(),
                     'turn': chess.WHITE,
@@ -288,21 +292,27 @@ class GUI_Board:
                     'last_move_target': None
                 }
                 target_gui = self._get_initial_gui_state()
+                print("UNDO DEBUG: Using initial board position")
             
-            print(f"UNDO DEBUG: Target FEN: {target_state['fen']}")
-            
-            # CRITICAL: Restore chess board from FEN and sync turn properly
+            # CRITICAL: Restore chess board from FEN
             self.chess_board = chess.Board(target_state['fen'])
             
-            # IMPORTANT: Sync GUI turn with chess board turn (don't force)
-            self.turn = self.chess_board.turn
-            print(f"UNDO DEBUG: Synced turn with chess board: {'White' if self.turn == chess.WHITE else 'Black'}")
+            # IMPORTANT: Set turn to WHITE (player's turn)
+            self.turn = chess.WHITE
+            print(f"UNDO DEBUG: Set turn to WHITE (player's turn)")
             
-            # If it's AI turn after undo, we need to let AI play
-            if self.turn == chess.BLACK:
-                print("UNDO DEBUG: WARNING - After undo it's AI turn, AI will play automatically")
-            else:
-                print("UNDO DEBUG: After undo it's player turn")
+            # Verify the chess board turn matches our expectation
+            if self.chess_board.turn != chess.WHITE:
+                print(f"UNDO WARNING: Chess board turn is {self.chess_board.turn}, but we expect WHITE")
+                # Force the chess board to be white's turn if needed
+                if self.chess_board.turn == chess.BLACK:
+                    # We need to make the board think it's white's turn
+                    # This is a bit of a hack, but necessary for the undo to work correctly
+                    temp_fen_parts = self.chess_board.fen().split(' ')
+                    temp_fen_parts[1] = 'w'  # Set active color to white
+                    corrected_fen = ' '.join(temp_fen_parts)
+                    self.chess_board = chess.Board(corrected_fen)
+                    print(f"UNDO DEBUG: Corrected turn to WHITE")
             
             # Clear all GUI squares
             for square in self.squares:
@@ -314,7 +324,7 @@ class GUI_Board:
                 if hasattr(square, 'is_move_indicator'):
                     delattr(square, 'is_move_indicator')
             
-            # Restore pieces by reading directly from chess board (ensure perfect sync)
+            # Restore pieces by reading directly from chess board
             pieces_restored = 0
             for chess_square in chess.SQUARES:
                 piece = self.chess_board.piece_at(chess_square)
@@ -330,24 +340,8 @@ class GUI_Board:
                         new_piece = Piece(gui_pos, piece.piece_type, piece.color, self)
                         gui_square.occupying_piece = new_piece
                         pieces_restored += 1
-                        
-                        # Ensure piece coordinate system is correct
-                        new_piece.coord = get_coord_from_pos(gui_pos[0], gui_pos[1])
-                        
-            print(f"UNDO DEBUG: Restored {pieces_restored} pieces with correct coordinates")
             
-            # CRITICAL: Verify piece placement by checking a few key pieces
-            test_squares = [chess.A1, chess.E1, chess.A8, chess.E8]  # Corners and kings
-            for test_square in test_squares:
-                piece = self.chess_board.piece_at(test_square)
-                if piece:
-                    file = chess.square_file(test_square)
-                    rank = chess.square_rank(test_square)
-                    gui_pos = (file, 7 - rank)
-                    gui_square = self.get_square_from_pos(gui_pos)
-                    if gui_square and gui_square.occupying_piece:
-                        coord_name = chess.square_name(test_square)
-                        print(f"UNDO DEBUG: Verified {piece.piece_type} at {coord_name} -> GUI pos {gui_pos}")
+            print(f"UNDO DEBUG: Restored {pieces_restored} pieces")
             
             # Restore last move highlighting if available
             if target_state.get('last_move_source') and target_state.get('last_move_target'):
@@ -366,40 +360,28 @@ class GUI_Board:
             self.animation_source_square = None
             self.animation_progress = 0.0
             
+            # Verify the board is in a valid state
+            legal_moves = list(self.chess_board.legal_moves)
+            print(f"UNDO DEBUG: Legal moves available: {len(legal_moves)}")
+            
+            if len(legal_moves) == 0:
+                print("UNDO ERROR: No legal moves available after undo!")
+                return None
+            
+            # Verify GUI pieces match chess board
+            gui_piece_count = sum(1 for square in self.squares if square.occupying_piece is not None)
+            chess_piece_count = len(self.chess_board.piece_map())
+            
+            if gui_piece_count != chess_piece_count:
+                print(f"UNDO WARNING: GUI pieces ({gui_piece_count}) != Chess pieces ({chess_piece_count})")
+            else:
+                print(f"UNDO DEBUG: Piece count verified: {gui_piece_count}")
+            
             print(f"UNDO DEBUG: Final FEN: {self.chess_board.fen()}")
             print(f"UNDO DEBUG: Final turn: {'White' if self.turn == chess.WHITE else 'Black'}")
             print(f"UNDO DEBUG: States remaining: {len(self.board_states)}")
             
-            # CRITICAL: Test legal moves generation
-            legal_moves = list(self.chess_board.legal_moves)
-            print(f"UNDO DEBUG: Legal moves available: {len(legal_moves)}")
-            
-            if len(legal_moves) > 0:
-                # Show first few legal moves for debugging
-                sample_moves = [move.uci() for move in legal_moves[:5]]
-                print(f"UNDO DEBUG: Sample legal moves: {sample_moves}")
-            
-            # Verify the board is playable
-            if len(legal_moves) == 0:
-                print("ERROR: No legal moves available after undo!")
-                return None
-            
-            # CRITICAL: Verify GUI can find pieces for legal moves
-            movable_pieces = 0
-            for square in self.squares:
-                if (square.occupying_piece is not None and 
-                    square.occupying_piece.color == self.turn):
-                    piece_moves = square.occupying_piece.get_moves()
-                    if len(piece_moves) > 0:
-                        movable_pieces += 1
-            
-            print(f"UNDO DEBUG: Movable pieces found: {movable_pieces}")
-            
-            if movable_pieces == 0:
-                print("ERROR: No movable pieces found in GUI after undo!")
-                return None
-            
-            return 2
+            return 2  # Successfully undid 2 moves
             
         except Exception as e:
             print(f"UNDO ERROR: {e}")
