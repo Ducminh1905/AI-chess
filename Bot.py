@@ -254,7 +254,7 @@ def evaluate_pawn_structure_advanced(board: chess.Board):
         white_pawns = board.pieces(chess.PAWN, chess.WHITE)
         black_pawns = board.pieces(chess.PAWN, chess.BLACK)
         
-        # Count doubled pawns
+        # Phạt tốt chồng
         for file in range(8):
             white_pawns_in_file = len([p for p in white_pawns if chess.square_file(p) == file])
             black_pawns_in_file = len([p for p in black_pawns if chess.square_file(p) == file])
@@ -264,7 +264,7 @@ def evaluate_pawn_structure_advanced(board: chess.Board):
             if black_pawns_in_file > 1:
                 pawn_score += 20 * (black_pawns_in_file - 1)
         
-        # Isolated pawns penalty
+        # Phạt tốt cô lập
         for pawn in white_pawns:
             if is_isolated_pawn(pawn, white_pawns):
                 pawn_score -= 15
@@ -279,21 +279,20 @@ def evaluate_pawn_structure_advanced(board: chess.Board):
         print(f"Error in evaluate_pawn_structure_advanced: {e}")
         return 0
 
-def is_isolated_pawn(pawn_square, friendly_pawns):
-    """Check if a pawn is isolated - SAFE VERSION"""
-    try:
-        pawn_file = chess.square_file(pawn_square)
-        adjacent_files = [pawn_file - 1, pawn_file + 1]
-        
-        for adjacent_file in adjacent_files:
-            if 0 <= adjacent_file <= 7:
-                for pawn in friendly_pawns:
-                    if chess.square_file(pawn) == adjacent_file:
-                        return False
-        return True
-    except Exception as e:
-        print(f"Error in is_isolated_pawn: {e}")
-        return False
+def is_passed_pawn(pawn_square, color, board):
+    """Kiểm tra tốt có phải tốt thông không"""
+    file = chess.square_file(pawn_square)
+    rank = chess.square_rank(pawn_square)
+    for df in [-1, 0, 1]:  # kiểm tra các cột bên cạnh
+        f = file + df
+        if not (0 <= f <= 7):
+            continue
+        for r in (range(rank+1, 8) if color == chess.WHITE else range(rank-1, -1, -1)):
+            sq = chess.square(f, r)
+            if board.piece_type_at(sq) == chess.PAWN and board.color_at(sq) != color:
+                return False
+    return True
+
 
 def get_board_val(board: chess.Board, use_neural_net=False):
     """Enhanced board evaluation with neural network support - FIXED VERSION"""
@@ -371,6 +370,36 @@ def get_board_val(board: chess.Board, use_neural_net=False):
         except Exception as e:
             print(f"Pawn structure evaluation error: {e}")
         
+                # Ưu thế lượt đi (bên sắp đi sẽ có lợi hơn một chút)
+        val += 10 if board.turn == chess.WHITE else -10
+
+        # Kiểm soát trung tâm (d4, d5, e4, e5)
+        center_squares = [chess.D4, chess.D5, chess.E4, chess.E5]
+        for square in center_squares:
+            val += len(board.attackers(chess.WHITE, square)) * 5
+            val -= len(board.attackers(chess.BLACK, square)) * 5
+
+        # Phạt quân bị ghim (quân không thể di chuyển vì chắn vua)
+        for square, piece in board.piece_map().items():
+            if board.is_pinned(piece.color, square):
+                val -= 30 if piece.color == chess.WHITE else -30
+
+        # Chiếu (áp lực lên vua đối phương)
+        if board.is_check():
+            val += 50 if board.turn == chess.BLACK else -50  # bị chiếu thì trừ điểm
+
+        # Thưởng tốt thông (tốt không bị cản bởi tốt đối phương ở cùng/dọc bên cạnh)
+        white_pawns = board.pieces(chess.PAWN, chess.WHITE)
+        black_pawns = board.pieces(chess.PAWN, chess.BLACK)
+
+        for pawn in white_pawns:
+            if is_passed_pawn(pawn, chess.WHITE, board):
+                val += 20
+
+        for pawn in black_pawns:
+            if is_passed_pawn(pawn, chess.BLACK, board):
+                val -= 20
+
         return val
         
     except Exception as e:
@@ -386,6 +415,21 @@ def get_board_val(board: chess.Board, use_neural_net=False):
         except:
             pass
         return material_val
+
+def is_passed_pawn(pawn_square, color, board):
+    """Kiểm tra tốt có phải tốt thông không"""
+    file = chess.square_file(pawn_square)
+    rank = chess.square_rank(pawn_square)
+    for df in [-1, 0, 1]:  # kiểm tra các cột bên cạnh
+        f = file + df
+        if not (0 <= f <= 7):
+            continue
+        for r in (range(rank+1, 8) if color == chess.WHITE else range(rank-1, -1, -1)):
+            sq = chess.square(f, r)
+            if board.piece_type_at(sq) == chess.PAWN and board.color_at(sq) != color:
+                return False
+    return True
+
 
 def is_draw(board: chess.Board):
     return board.is_stalemate() or board.is_seventyfive_moves() or board.is_fivefold_repetition() or board.is_insufficient_material()
@@ -631,7 +675,7 @@ def save_game_analysis(board, result, filename=None):
     if not filename.startswith("data/"):
         filename = os.path.join("data", os.path.basename(filename))
 
-    print(f"📁 Saving game analysis: {filename}")
+    print(f"Saving game analysis: {filename}")
 
     try:
         analysis_data = {
@@ -639,7 +683,7 @@ def save_game_analysis(board, result, filename=None):
             'final_fen': board.chess_board.fen(),
             'move_history': getattr(board.move_history, 'moves', []),
             'evaluation_history': getattr(board, 'evaluation_history', []),
-            'result': result,
+            'result': result, # 1 for AI win, 0 for draw, -1 for AI loss
             'game_length': len(getattr(board.move_history, 'moves', [])),
             'opening_used': len([m for m in getattr(board.move_history, 'moves', [])[:6]]),
             'final_evaluation': getattr(board, 'evaluation_history', [0])[-1] if hasattr(board, 'evaluation_history') and board.evaluation_history else 0

@@ -7,13 +7,17 @@ import json
 import os
 
 def draw_gradient_background(display, width, height):
-    """Draw simple background without heavy gradient"""
-    # Màu nền đơn giản thay vì gradient phức tạp
-    background_color = (120, 90, 60)  # Màu nâu đơn giản
-    display.fill(background_color)
+    """Draw a beautiful gradient background"""
+    for y in range(height):
+        color_ratio = y / height
+        # Elegant dark to light brown gradient
+        r = int(101 + (139 - 101) * color_ratio)
+        g = int(67 + (116 - 67) * color_ratio)
+        b = int(33 + (78 - 33) * color_ratio)
+        pygame.draw.line(display, (r, g, b), (0, y), (width, y))
 
 def draw_button(display, rect, text, font, is_hovered=False, is_disabled=False):
-    """Draw a clean button without gradients"""
+    """Draw a styled button"""
     if is_disabled:
         bg_color = (120, 120, 120)
         text_color = (80, 80, 80)
@@ -27,8 +31,15 @@ def draw_button(display, rect, text, font, is_hovered=False, is_disabled=False):
         text_color = (101, 67, 33)
         border_color = (101, 67, 33)
     
-    # Draw button background đơn giản
-    pygame.draw.rect(display, bg_color, rect)
+    # Draw button background with gradient
+    for y in range(rect.height):
+        ratio = y / rect.height
+        r = int(bg_color[0] * (1 - ratio * 0.2))
+        g = int(bg_color[1] * (1 - ratio * 0.2))
+        b = int(bg_color[2] * (1 - ratio * 0.2))
+        pygame.draw.line(display, (r, g, b), 
+                        (rect.x, rect.y + y), 
+                        (rect.x + rect.width, rect.y + y))
     
     # Draw border
     pygame.draw.rect(display, border_color, rect, 2)
@@ -39,10 +50,15 @@ def draw_button(display, rect, text, font, is_hovered=False, is_disabled=False):
     display.blit(text_surface, text_rect)
 
 def draw_move_history_panel(display, move_history, font, panel_rect):
-    """Draw move history panel without gradient"""
-    # Panel background đơn giản
+    """Draw the elegant move history panel"""
+    # Panel background with gradient
     panel_surface = pygame.Surface((panel_rect.width, panel_rect.height))
-    panel_surface.fill((240, 230, 200))  # Màu đơn thay vì gradient
+    for y in range(panel_rect.height):
+        ratio = y / panel_rect.height
+        r = int(240 + (220 - 240) * ratio)
+        g = int(230 + (210 - 230) * ratio)
+        b = int(200 + (180 - 200) * ratio)
+        pygame.draw.line(panel_surface, (r, g, b), (0, y), (panel_rect.width, y))
     
     # Panel border
     pygame.draw.rect(panel_surface, (101, 67, 33), (0, 0, panel_rect.width, panel_rect.height), 3)
@@ -93,7 +109,7 @@ def draw_control_buttons(display, panel_rect, font, button_states):
     # Reset button
     reset_rect = pygame.Rect(
         panel_rect.x + 10,
-        panel_rect.y + panel_rect.height - 115,  # Moved up for new button
+        panel_rect.y + panel_rect.height - 80,
         button_width,
         button_height
     )
@@ -101,30 +117,21 @@ def draw_control_buttons(display, panel_rect, font, button_states):
     # Surrender button  
     surrender_rect = pygame.Rect(
         panel_rect.x + button_width + 20,
-        panel_rect.y + panel_rect.height - 115,  # Moved up for new button
-        button_width,
-        button_height
-    )
-    
-    # NEW: Undo button
-    undo_rect = pygame.Rect(
-        panel_rect.x + 10,
         panel_rect.y + panel_rect.height - 80,
         button_width,
         button_height
     )
     
-    # Save button (moved down)
+    # Save/Load buttons
     save_rect = pygame.Rect(
-        panel_rect.x + button_width + 20,
-        panel_rect.y + panel_rect.height - 80,
+        panel_rect.x + 10,
+        panel_rect.y + panel_rect.height - 45,
         button_width,
         button_height
     )
     
-    # Load button (moved down)
     load_rect = pygame.Rect(
-        panel_rect.x + 10,
+        panel_rect.x + button_width + 20,
         panel_rect.y + panel_rect.height - 45,
         button_width,
         button_height
@@ -133,15 +140,12 @@ def draw_control_buttons(display, panel_rect, font, button_states):
     # Draw buttons
     draw_button(display, reset_rect, "Reset", font, button_states.get('reset_hover', False))
     draw_button(display, surrender_rect, "Surrender", font, button_states.get('surrender_hover', False))
-    draw_button(display, undo_rect, "Undo", font, button_states.get('undo_hover', False), 
-                button_states.get('undo_disabled', False))  # Can be disabled
     draw_button(display, save_rect, "Save", font, button_states.get('save_hover', False))
     draw_button(display, load_rect, "Load", font, button_states.get('load_hover', False))
     
     return {
         'reset': reset_rect,
         'surrender': surrender_rect,
-        'undo': undo_rect,  # NEW
         'save': save_rect,
         'load': load_rect
     }
@@ -174,7 +178,7 @@ def load_game_state():
     return None
 
 def show_game_over_dialog(display, font, result_text):
-    """Show clean game over dialog without shadows"""
+    """Show game over dialog"""
     dialog_width = 300
     dialog_height = 150
     dialog_x = (TOTAL_WIDTH - dialog_width) // 2
@@ -182,7 +186,7 @@ def show_game_over_dialog(display, font, result_text):
     
     dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_width, dialog_height)
     
-    # Draw clean dialog background
+    # Draw dialog background
     pygame.draw.rect(display, (240, 230, 200), dialog_rect)
     pygame.draw.rect(display, (101, 67, 33), dialog_rect, 3)
     
@@ -196,7 +200,7 @@ def show_game_over_dialog(display, font, result_text):
         y_offset += 30
 
 def draw(display, board, move_history, font, button_states):
-    # Create a simple background
+    # Create a beautiful gradient background
     draw_gradient_background(display, TOTAL_WIDTH, TOTAL_HEIGHT)
     
     # Draw the chess board (offset by border)
@@ -259,12 +263,8 @@ if __name__ == '__main__':
         for button_name, rect in button_rects.items():
             button_states[f'{button_name}_hover'] = rect.collidepoint(mx, my)
         
-        # Check if undo should be disabled (remove game_over restriction temporarily)
-        button_states['undo_disabled'] = len(move_history) < 2  # Only need 2+ moves
-        
         # Handle bot moves
         if not game_over and board.turn == chess.BLACK and not board.is_animating:
-            print("MAIN DEBUG: Bot turn starting...")
             print("Board value after player has moved:", Bot.get_board_val(board.chess_board))
             move_made = None
             if opening and len(sequence) < 6:
@@ -281,7 +281,6 @@ if __name__ == '__main__':
             # Add bot move to history
             if move_made:
                 move_history.append(move_made)
-                print(f"MAIN DEBUG: Bot made move: {move_made}")
                 
             print("Board value after bot has moved:", Bot.get_board_val(board.chess_board))
             print("--------------------------------------")
@@ -289,7 +288,6 @@ if __name__ == '__main__':
             if not status:
                 game_result = board.is_end_game()
                 game_over = True
-                print(f"MAIN DEBUG: Game ended with result: {game_result}")
         
         # Check for game end
         if not game_over:
@@ -297,7 +295,6 @@ if __name__ == '__main__':
             if end_result is not False:
                 game_result = end_result
                 game_over = True
-                print(f"MAIN DEBUG: Game ended in main loop: {game_result}")
                 if not trained_this_game:
                 # Train AI from this game
                     print("AI is training before reset...")
@@ -306,9 +303,10 @@ if __name__ == '__main__':
                         'move_history': move_history,
                         'result': game_result,
                         'fen': board.chess_board.fen()
-                                                    }
+                        }
                         Bot.train_from_game(game_data)
                         Bot.save_model("model.pkl")
+                        Bot.save_game_analysis(board, game_result)
                         print("AI trained and model saved after the game.")
                         trained_this_game = True
                     except Exception as e:
@@ -318,7 +316,23 @@ if __name__ == '__main__':
         # Handle events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                # Nếu chưa học và có dữ liệu thì học trước khi thoát
+                if move_history and not trained_this_game:
+                    try:
+                        print(" AI is training before quit...")
+                        game_data = {
+                            'move_history': move_history,
+                            'result': "Player quit mid-game",
+                            'fen': board.chess_board.fen()
+                        }
+                        Bot.train_from_game(game_data)
+                        Bot.save_model("model.pkl")
+                        Bot.save_game_analysis(board, "Player quit mid-game")
+                        print("AI trained and saved before quit.")
+                    except Exception as e:
+                        print(f"Error training before quit: {e}")
                 running = False
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left click
                     # Check button clicks
@@ -332,16 +346,16 @@ if __name__ == '__main__':
                         # Nếu đã có nước đi và chưa học thì học trước khi reset
                         if move_history and not trained_this_game:
                             try:
-                                print("AI is training on early reset...")
+                                print(" AI is training before quit...")
                                 game_data = {
                                     'move_history': move_history,
-                                    'result': "Reset early",  # Hoặc để "" nếu bạn muốn
+                                    'result': "Player quit mid-game",
                                     'fen': board.chess_board.fen()
                                 }
                                 Bot.train_from_game(game_data)
                                 Bot.save_model("model.pkl")
-                                print("AI trained and model saved before reset.")
-                                trained_this_game = True
+                                Bot.save_game_analysis(board, "Player quit mid-game")
+                                print("AI trained and saved before quit.")
                             except Exception as e:
                                 print(f"Error training AI before reset: {e}")
 
@@ -352,64 +366,30 @@ if __name__ == '__main__':
                         opening = True
                         game_over = False
                         game_result = ""
-                        trained_this_game = False
                         print("Game reset!")
+                        trained_this_game = False
 
                         
-                    elif clicked_button == 'undo':
-                        print(f"MAIN DEBUG: Undo clicked. Move history length: {len(move_history)}")
-                        print(f"MAIN DEBUG: Game over: {game_over}")
-                        print(f"MAIN DEBUG: Current board turn: {'White' if board.turn == chess.WHITE else 'Black'}")
-                        
-                        if len(move_history) >= 2:  # Remove game_over check temporarily
-                            try:
-                                # Always undo both AI move and player move to get back to player's turn
-                                moves_undone = board.undo_last_move()
-                                print(f"MAIN DEBUG: Undo returned: {moves_undone}")
-                                
-                                if moves_undone:
-                                    # Remove corresponding moves from history
-                                    for i in range(moves_undone):
-                                        if len(move_history) > 0:
-                                            removed_move = move_history.pop()
-                                            print(f"MAIN DEBUG: Removed move from history: {removed_move}")
-                                    
-                                    # If we're in opening, also remove from sequence
-                                    if opening:
-                                        for i in range(moves_undone):
-                                            if len(sequence) > 0:
-                                                removed_seq = sequence.pop()
-                                                print(f"MAIN DEBUG: Removed from sequence: {removed_seq}")
-                                    
-                                    # Reset game state flags
-                                    opening = len(sequence) < 6
-                                    game_over = False  # FORCE reset game over flag
-                                    game_result = ""   # Clear game result
-                                    
-                                    print(f"MAIN DEBUG: After undo - Move history: {move_history}")
-                                    print(f"MAIN DEBUG: After undo - Board turn: {'White' if board.turn == chess.WHITE else 'Black'}")
-                                    print(f"MAIN DEBUG: After undo - Opening: {opening}")
-                                    print(f"MAIN DEBUG: After undo - Game over: {game_over}")
-                                    print(f"MAIN DEBUG: After undo - Can undo again: {len(move_history) >= 2}")
-                                else:
-                                    print("MAIN DEBUG: Undo failed!")
-                            except Exception as e:
-                                print(f"MAIN DEBUG: Error during undo: {e}")
-                                import traceback
-                                traceback.print_exc()
-                        else:
-                            print("MAIN DEBUG: Cannot undo - insufficient moves or game over!")
-                            
                     elif clicked_button == 'surrender':
                         if not game_over:
                             game_result = "You surrendered! Black wins!"
                             game_over = True
                             print("Player surrendered!")
 
-                            try:
-                                Bot.save_game_analysis(board, game_result)
-                            except Exception as e:
-                                print(f"Error saving analysis: {e}")
+                        try:
+                            print(" AI is training before quit...")
+                            game_data = {
+                                'move_history': move_history,
+                                'result': "Player quit mid-game",
+                                'fen': board.chess_board.fen()
+                            }
+                            Bot.train_from_game(game_data)
+                            Bot.save_model("model.pkl")
+                            Bot.save_game_analysis(board, "Player quit mid-game")
+                            print("AI trained and saved before quit.")
+                        except Exception as e:
+                            print(f"Error training AI after surrender: {e}")
+
 
 
                             
