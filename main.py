@@ -241,7 +241,7 @@ BOARD_WIDTH, BOARD_HEIGHT = BOARD_SIZE
 TOTAL_WIDTH = BOARD_WIDTH + BORDER_WIDTH * 2 + PANEL_WIDTH
 TOTAL_HEIGHT = BOARD_HEIGHT + BORDER_WIDTH * 2
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     Bot.initialize_openings()
     pygame.init()
     
@@ -514,3 +514,4 @@ if __name__ == '__main__':
         
         # Control frame rate for smooth animation
         clock.tick(60)  # 60 FPS for smooth animation
+

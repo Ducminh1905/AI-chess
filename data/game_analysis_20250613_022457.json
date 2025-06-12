@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-06-13T02:24:57.584601",
+  "final_fen": "rnbqkb1r/pppppppp/8/6n1/8/8/PPPP1PPP/RNBQKB1R w KQkq - 0 4",
+  "move_history": [
+    "e2e4",
+    "g1f3",
+    "f3g5"
+  ],
+  "evaluation_history": [
+    -47,
+    -78,
+    -443
+  ],
+  "result": "Player surrendered",
+  "game_length": 3,
+  "opening_used": 3,
+  "final_evaluation": -443
+}
