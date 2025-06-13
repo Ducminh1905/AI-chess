@@ -1,0 +1,29 @@
+{
+  "timestamp": "2025-06-13T18:08:10.685405",
+  "final_fen": "rn2kbnr/p1p1pppp/1p2P3/8/6Pq/1P6/P2PP2P/RNBQKBNR w KQkq - 1 8",
+  "move_history": [
+    "f2f4",
+    "b2b3",
+    "h2h3",
+    "c2c4",
+    "e2e3",
+    "g2g3",
+    "g3g4",
+    "c4d5",
+    "d5e6"
+  ],
+  "evaluation_history": [
+    -172,
+    -541,
+    -476,
+    -514,
+    -565,
+    -99999,
+    -99999,
+    -99999
+  ],
+  "result": "Black wins!",
+  "game_length": 9,
+  "opening_used": 6,
+  "final_evaluation": -99999
+}

@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-06-13T18:54:34.793756",
+  "final_fen": "rnbqkbnr/pppp1ppp/8/4p3/8/3P4/PPP1PPPP/RNBQKBNR w KQkq - 0 2",
+  "move_history": [
+    "d2d3"
+  ],
+  "evaluation_history": [
+    -35
+  ],
+  "result": "Player reset mid-game",
+  "game_length": 1,
+  "opening_used": 1,
+  "final_evaluation": -35
+}

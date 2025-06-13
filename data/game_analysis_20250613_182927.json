@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-06-13T18:29:27.739757",
+  "final_fen": "rnb1kbnr/pppp1ppp/4p3/8/1P3P1q/6P1/P1PPP2P/RNBQKBNR b KQkq - 0 3",
+  "move_history": [
+    "f2f4",
+    "b2b4",
+    "g2g3",
+    "g2g3"
+  ],
+  "evaluation_history": [
+    -91,
+    -299,
+    -254
+  ],
+  "result": "Player reset mid-game",
+  "game_length": 4,
+  "opening_used": 4,
+  "final_evaluation": -254
+}
