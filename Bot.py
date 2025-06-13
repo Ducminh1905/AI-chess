@@ -245,6 +245,24 @@ def evaluate_king_safety_advanced(board: chess.Board):
     except Exception as e:
         print(f"Error in evaluate_king_safety_advanced: {e}")
         return 0
+        
+        print(f"Error in is_isolated_pawn: {e}")
+        return False
+def is_isolated_pawn(pawn_square, friendly_pawns):
+    """Check if a pawn is isolated - SAFE VERSION"""
+    try:
+        pawn_file = chess.square_file(pawn_square)
+        adjacent_files = [pawn_file - 1, pawn_file + 1]
+        
+        for adjacent_file in adjacent_files:
+            if 0 <= adjacent_file <= 7:
+                for pawn in friendly_pawns:
+                    if chess.square_file(pawn) == adjacent_file:
+                        return False
+        return True
+    except Exception as e:
+        print(f"Error in is_isolated_pawn: {e}")
+        return False
 
 def evaluate_pawn_structure_advanced(board: chess.Board):
     """Advanced pawn structure evaluation - FIXED VERSION"""
@@ -278,6 +296,7 @@ def evaluate_pawn_structure_advanced(board: chess.Board):
     except Exception as e:
         print(f"Error in evaluate_pawn_structure_advanced: {e}")
         return 0
+
 
 def is_passed_pawn(pawn_square, color, board):
     """Kiểm tra tốt có phải tốt thông không"""
@@ -416,19 +435,7 @@ def get_board_val(board: chess.Board, use_neural_net=False):
             pass
         return material_val
 
-def is_passed_pawn(pawn_square, color, board):
-    """Kiểm tra tốt có phải tốt thông không"""
-    file = chess.square_file(pawn_square)
-    rank = chess.square_rank(pawn_square)
-    for df in [-1, 0, 1]:  # kiểm tra các cột bên cạnh
-        f = file + df
-        if not (0 <= f <= 7):
-            continue
-        for r in (range(rank+1, 8) if color == chess.WHITE else range(rank-1, -1, -1)):
-            sq = chess.square(f, r)
-            if board.piece_type_at(sq) == chess.PAWN and board.color_at(sq) != color:
-                return False
-    return True
+
 
 
 def is_draw(board: chess.Board):

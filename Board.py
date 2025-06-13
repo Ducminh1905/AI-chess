@@ -100,10 +100,10 @@ class GUI_Board:
         self.move_history = MoveHistory()
         self.evaluation_history = []
         
-        # Undo functionality
-        self.board_states = []  # Stack of previous board states
-        self.gui_states = []    # Stack of previous GUI states
-        self.max_undo_states = 50  # Increase limit for more undo capability
+        # Undo functionality - SIMPLIFIED
+        self.board_states = []
+        self.gui_states = []
+        self.max_undo_states = 100  # Cho phép undo tối đa 50 lần
         
         # Time management
         self.time_white = 300.0
@@ -219,131 +219,103 @@ class GUI_Board:
         self.last_move_target = None
 
     def save_board_state(self):
-        """Save current board state for undo functionality - FIXED VERSION"""
-        # Save chess board state with move history for proper restoration
-        board_state = {
-            'fen': self.chess_board.fen(),
-            'turn': self.turn,
-            'move_stack': [move.uci() for move in self.chess_board.move_stack],  # Save full move history
-            'last_move_source': self.last_move_source.pos if self.last_move_source else None,
-            'last_move_target': self.last_move_target.pos if self.last_move_target else None
-        }
-        
-        # Save GUI state (piece positions) - sync with chess board
-        gui_state = {}
-        for file in range(8):
-            for rank in range(8):
-                chess_square = chess.square(file, rank)
-                piece = self.chess_board.piece_at(chess_square)
-                if piece:
-                    gui_pos = (file, 7 - rank)  # Convert to GUI coordinates
-                    piece_data = {
-                        'type': piece.piece_type,
-                        'color': piece.color,
-                        'move_count': 0  # We'll calculate this if needed
+        """Save current board state - SIMPLIFIED VERSION"""
+        try:
+            board_state = {
+                'fen': self.chess_board.fen(),
+                'turn': self.turn,
+                'last_move_source': self.last_move_source.pos if self.last_move_source else None,
+                'last_move_target': self.last_move_target.pos if self.last_move_target else None
+            }
+            
+            # Save GUI state (đơn giản hóa)
+            gui_state = {}
+            for square in self.squares:
+                if square.occupying_piece:
+                    gui_state[square.pos] = {
+                        'type': square.occupying_piece.piece_type,
+                        'color': square.occupying_piece.color
                     }
-                    gui_state[gui_pos] = piece_data
-        
-        self.board_states.append(board_state)
-        self.gui_states.append(gui_state)
-        
-        # Keep reasonable number of states for undo capability
-        if len(self.board_states) > self.max_undo_states:
-            self.board_states.pop(0)
-            self.gui_states.pop(0)
-        
-        print(f"Saved board state. Total states: {len(self.board_states)}")
-        print(f"Saved FEN: {board_state['fen']}")
-        print(f"Saved turn: {'White' if board_state['turn'] == chess.WHITE else 'Black'}")
-        print(f"Saved pieces: {len(gui_state)}")
+            
+            self.board_states.append(board_state)
+            self.gui_states.append(gui_state)
+            
+            # Keep reasonable number of states (tăng lên để cho phép undo nhiều)
+            max_states = 100  # Cho phép undo tối đa 50 lần (100 states / 2)
+            if len(self.board_states) > max_states:
+                self.board_states.pop(0)
+                self.gui_states.pop(0)
+            
+            print(f"SAVE DEBUG: Saved state. Total states: {len(self.board_states)}")
+            
+        except Exception as e:
+            print(f"SAVE ERROR: {e}")
+            import traceback
+            traceback.print_exc()
     
     def undo_last_move(self):
-        """Undo back to player's turn - COMPLETELY REWRITTEN AND FIXED"""
-        print(f"UNDO DEBUG: Current states available: {len(self.board_states)}")
-        print(f"UNDO DEBUG: Current FEN before undo: {self.chess_board.fen()}")
-        print(f"UNDO DEBUG: Current turn before undo: {'White' if self.turn == chess.WHITE else 'Black'}")
+        """
+        Undo 2 moves gần nhất (1 của player + 1 của AI)
+        SIMPLIFIED VERSION - Chỉ cần hoạt động đúng
+        """
+        print(f"UNDO DEBUG: Starting undo...")
+        print(f"UNDO DEBUG: Current board states available: {len(self.board_states)}")
+        print(f"UNDO DEBUG: Current FEN: {self.chess_board.fen()}")
+        print(f"UNDO DEBUG: Current turn: {'WHITE' if self.turn == chess.WHITE else 'BLACK'}")
         
+        # Cần ít nhất 2 moves để undo
         if len(self.board_states) < 2:
-            print("UNDO ERROR: Need at least 2 moves to undo!")
+            print("UNDO ERROR: Cần ít nhất 2 moves để undo")
             return None
         
         try:
-            # Remove the current state and AI's last move state
-            if len(self.board_states) >= 1:
-                self.board_states.pop()  # Remove current state
-                self.gui_states.pop()
+            # Lấy state từ 2 moves trước (index -2)
+            target_state = self.board_states[-2]
+            target_gui_state = self.gui_states[-2]
             
-            if len(self.board_states) >= 1:
-                self.board_states.pop()  # Remove AI's move state  
-                self.gui_states.pop()
+            print(f"UNDO DEBUG: Target FEN: {target_state['fen']}")
+            print(f"UNDO DEBUG: Target turn: {'WHITE' if target_state['turn'] == chess.WHITE else 'BLACK'}")
             
-            # Get the target state (player's position before their last move)
-            if len(self.board_states) > 0:
-                target_state = self.board_states[-1]
-                target_gui = self.gui_states[-1]
-                print(f"UNDO DEBUG: Using saved state with FEN: {target_state['fen']}")
-            else:
-                # Go back to initial position
-                target_state = {
-                    'fen': chess.Board().fen(),
-                    'turn': chess.WHITE,
-                    'move_stack': [],
-                    'last_move_source': None,
-                    'last_move_target': None
-                }
-                target_gui = self._get_initial_gui_state()
-                print("UNDO DEBUG: Using initial board position")
+            # Xóa 2 states cuối (current + previous)
+            self.board_states = self.board_states[:-2]
+            self.gui_states = self.gui_states[:-2]
             
-            # CRITICAL: Restore chess board from FEN
+            print(f"UNDO DEBUG: Removed 2 states, remaining: {len(self.board_states)}")
+            
+            # Restore chess board từ FEN
             self.chess_board = chess.Board(target_state['fen'])
+            self.turn = target_state['turn']
             
-            # IMPORTANT: Set turn to WHITE (player's turn)
-            self.turn = chess.WHITE
-            print(f"UNDO DEBUG: Set turn to WHITE (player's turn)")
+            print(f"UNDO DEBUG: Restored chess board, turn = {'WHITE' if self.turn == chess.WHITE else 'BLACK'}")
             
-            # Verify the chess board turn matches our expectation
-            if self.chess_board.turn != chess.WHITE:
-                print(f"UNDO WARNING: Chess board turn is {self.chess_board.turn}, but we expect WHITE")
-                # Force the chess board to be white's turn if needed
-                if self.chess_board.turn == chess.BLACK:
-                    # We need to make the board think it's white's turn
-                    # This is a bit of a hack, but necessary for the undo to work correctly
-                    temp_fen_parts = self.chess_board.fen().split(' ')
-                    temp_fen_parts[1] = 'w'  # Set active color to white
-                    corrected_fen = ' '.join(temp_fen_parts)
-                    self.chess_board = chess.Board(corrected_fen)
-                    print(f"UNDO DEBUG: Corrected turn to WHITE")
-            
-            # Clear all GUI squares
+            # Clear tất cả GUI pieces
             for square in self.squares:
                 square.occupying_piece = None
-                square.last_move = False
                 square.highlight = False
                 square.check = False
                 square.checkmate = False
+                square.last_move = False
                 if hasattr(square, 'is_move_indicator'):
                     delattr(square, 'is_move_indicator')
             
-            # Restore pieces by reading directly from chess board
+            # Restore pieces từ chess board
             pieces_restored = 0
             for chess_square in chess.SQUARES:
                 piece = self.chess_board.piece_at(chess_square)
                 if piece:
-                    # Convert chess coordinates to GUI coordinates
                     file = chess.square_file(chess_square)
                     rank = chess.square_rank(chess_square)
-                    gui_pos = (file, 7 - rank)  # Convert chess rank to GUI y-coordinate
+                    gui_pos = (file, 7 - rank)  # Convert to GUI coordinates
                     
                     gui_square = self.get_square_from_pos(gui_pos)
                     if gui_square:
-                        # Create new piece with correct coordinates
                         new_piece = Piece(gui_pos, piece.piece_type, piece.color, self)
                         gui_square.occupying_piece = new_piece
                         pieces_restored += 1
             
             print(f"UNDO DEBUG: Restored {pieces_restored} pieces")
             
-            # Restore last move highlighting if available
+            # Restore last move highlighting nếu có
             if target_state.get('last_move_source') and target_state.get('last_move_target'):
                 self.set_last_move_highlight(
                     target_state['last_move_source'], 
@@ -352,7 +324,7 @@ class GUI_Board:
             else:
                 self.clear_last_move_highlight()
             
-            # Reset all interactive state
+            # Reset interactive state
             self.selected_piece = None
             self.is_animating = False
             self.animating_piece = None
@@ -360,7 +332,7 @@ class GUI_Board:
             self.animation_source_square = None
             self.animation_progress = 0.0
             
-            # Verify the board is in a valid state
+            # Verify board state
             legal_moves = list(self.chess_board.legal_moves)
             print(f"UNDO DEBUG: Legal moves available: {len(legal_moves)}")
             
@@ -368,18 +340,9 @@ class GUI_Board:
                 print("UNDO ERROR: No legal moves available after undo!")
                 return None
             
-            # Verify GUI pieces match chess board
-            gui_piece_count = sum(1 for square in self.squares if square.occupying_piece is not None)
-            chess_piece_count = len(self.chess_board.piece_map())
-            
-            if gui_piece_count != chess_piece_count:
-                print(f"UNDO WARNING: GUI pieces ({gui_piece_count}) != Chess pieces ({chess_piece_count})")
-            else:
-                print(f"UNDO DEBUG: Piece count verified: {gui_piece_count}")
-            
             print(f"UNDO DEBUG: Final FEN: {self.chess_board.fen()}")
-            print(f"UNDO DEBUG: Final turn: {'White' if self.turn == chess.WHITE else 'Black'}")
-            print(f"UNDO DEBUG: States remaining: {len(self.board_states)}")
+            print(f"UNDO DEBUG: Final turn: {'WHITE' if self.turn == chess.WHITE else 'BLACK'}")
+            print("UNDO DEBUG: Undo completed successfully")
             
             return 2  # Successfully undid 2 moves
             
@@ -388,39 +351,6 @@ class GUI_Board:
             import traceback
             traceback.print_exc()
             return None
-    
-    def _get_initial_gui_state(self):
-        """Get initial GUI state for reset"""
-        gui_state = {}
-        # Initial chess position
-        initial_config = [
-            ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
-            ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
-            ['','','','','','','',''],
-            ['','','','','','','',''],
-            ['','','','','','','',''],
-            ['','','','','','','',''],
-            ['wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP', 'wP'],
-            ['wR', 'wN', 'wB', 'wQ', 'wK', 'wB', 'wN', 'wR'],
-        ]
-        
-        for y, row in enumerate(initial_config):
-            for x, piece_str in enumerate(row):
-                if piece_str != '':
-                    pos = (x, y)
-                    color = chess.WHITE if piece_str[0] == 'w' else chess.BLACK
-                    piece_type = {
-                        'P': chess.PAWN, 'R': chess.ROOK, 'N': chess.KNIGHT,
-                        'B': chess.BISHOP, 'Q': chess.QUEEN, 'K': chess.KING
-                    }[piece_str[1]]
-                    
-                    gui_state[pos] = {
-                        'type': piece_type,
-                        'color': color,
-                        'move_count': 0
-                    }
-        
-        return gui_state
     
     def get_game_phase(self):
         """Determine game phase for evaluation adjustments"""
@@ -725,8 +655,16 @@ class Piece(chess.Piece):
             mark_en_passant = True
         
         if square in self.get_valid_moves() or force:
-            # Save state before making move (for undo) - NOW FOR BOTH PLAYER AND AI
-            self.gui_board.save_board_state()
+            print(f"MOVE DEBUG: Making move from {self.coord} to {get_coord_from_pos(*square.pos)}")
+            print(f"MOVE DEBUG: Force = {force}")
+            print(f"MOVE DEBUG: Current turn before move: {'WHITE' if self.gui_board.turn == chess.WHITE else 'BLACK'}")
+            
+            # Save state before making move (for undo) - FOR BOTH PLAYER AND AI
+            try:
+                self.gui_board.save_board_state()
+                print("MOVE DEBUG: Board state saved successfully")
+            except Exception as e:
+                print(f"MOVE DEBUG: Error saving board state: {e}")
             
             prev_square = self.gui_board.get_square_from_pos(self.pos)
             move_cur = self.coord
@@ -766,7 +704,12 @@ class Piece(chess.Piece):
             
             # Update chess board
             if not force:
-                self.gui_board.chess_board.push_san(move_cur + move_new)
+                try:
+                    print(f"MOVE DEBUG: Pushing move to chess board: {move_cur + move_new}")
+                    self.gui_board.chess_board.push_san(move_cur + move_new)
+                    print("MOVE DEBUG: Chess board updated successfully")
+                except Exception as e:
+                    print(f"MOVE DEBUG: Error updating chess board: {e}")
             
             # Handle special moves
             if mark_en_passant:
@@ -785,10 +728,14 @@ class Piece(chess.Piece):
             
             # Switch turns
             if not force:
+                old_turn = self.gui_board.turn
                 self.gui_board.turn = chess.WHITE if self.gui_board.turn == chess.BLACK else chess.BLACK
+                print(f"MOVE DEBUG: Turn switched from {'WHITE' if old_turn == chess.WHITE else 'BLACK'} to {'WHITE' if self.gui_board.turn == chess.WHITE else 'BLACK'}")
             
+            print(f"MOVE DEBUG: Move completed: {move_cur + move_new}")
             return move_cur + move_new
         
         else:
             self.gui_board.selected_piece = None
+            print(f"MOVE DEBUG: Invalid move attempted from {self.coord} to {get_coord_from_pos(*square.pos)}")
             return None
