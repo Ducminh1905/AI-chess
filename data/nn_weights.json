@@ -1,1 +1,6 @@
-{"piece_activity": 1.0423743969561055, "king_safety": 0.8716763476755078, "pawn_structure": 0.7242067019332565, "center_control": 1.0511461629009426}
+{
+  "piece_activity": 0.8345001068970801,
+  "king_safety": 0.6629369614458844,
+  "pawn_structure": 0.8858716542651135,
+  "center_control": 1.4392630459140119
+}
