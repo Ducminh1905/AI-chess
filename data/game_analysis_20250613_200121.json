@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-06-13T20:01:21.309287",
+  "final_fen": "r1bqkbnr/ppp1pppp/2n5/3p4/Q1P5/8/PP1PPPPP/RNB1KBNR w KQkq - 2 3",
+  "move_history": [
+    "d7d5",
+    "b8c6",
+    "b8c6"
+  ],
+  "evaluation_history": [
+    164,
+    339
+  ],
+  "result": "Player quit mid-game",
+  "game_length": 3,
+  "opening_used": 3,
+  "final_evaluation": 339
+}
