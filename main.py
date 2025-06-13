@@ -131,6 +131,15 @@ def show_color_selection_screen(display, font):
         info_rect = info_text.get_rect(center=(TOTAL_WIDTH // 2, TOTAL_HEIGHT // 2 + 120))
         display.blit(info_text, info_rect)
         
+        # NEW: Add info about board orientation
+        orientation_text1 = font.render("Your pieces will always be at the bottom", True, (101, 67, 33))
+        orientation_rect1 = orientation_text1.get_rect(center=(TOTAL_WIDTH // 2, TOTAL_HEIGHT // 2 + 150))
+        display.blit(orientation_text1, orientation_rect1)
+        
+        orientation_text2 = font.render("regardless of which color you choose", True, (101, 67, 33))
+        orientation_rect2 = orientation_text2.get_rect(center=(TOTAL_WIDTH // 2, TOTAL_HEIGHT // 2 + 170))
+        display.blit(orientation_text2, orientation_rect2)
+        
         pygame.display.update()
         
         # Handle events
@@ -173,12 +182,18 @@ def draw_move_history_panel(display, move_history, font, panel_rect, current_tur
     turn_rect = turn_surface.get_rect(centerx=panel_rect.width // 2, y=30)
     panel_surface.blit(turn_surface, turn_rect)
     
+    # Player color indicator
+    color_text = f"You are: {'White' if player_color == chess.WHITE else 'Black'}"
+    color_surface = font.render(color_text, True, (101, 67, 33))
+    color_rect = color_surface.get_rect(centerx=panel_rect.width // 2, y=50)
+    panel_surface.blit(color_surface, color_rect)
+    
     # Divider line
     pygame.draw.line(panel_surface, (101, 67, 33), 
-                    (10, 50), (panel_rect.width - 10, 50), 2)
+                    (10, 70), (panel_rect.width - 10, 70), 2)
     
     # Move history
-    y_offset = 60
+    y_offset = 80
     moves_per_line = 2
     line_height = 25
     
@@ -385,7 +400,7 @@ if __name__ == '__main__':
     
     # Create enhanced screen with side panel
     screen = pygame.display.set_mode((TOTAL_WIDTH, TOTAL_HEIGHT))
-    pygame.display.set_caption("Enhanced Luxury Chess Game with AI")
+    pygame.display.set_caption("Enhanced Luxury Chess Game with AI - Adaptive Board View")
     
     # ===== CHỌN MÀU QUÂN CHO NGƯỜI CHƠI =====
     player_color = show_color_selection_screen(screen, font)
@@ -396,11 +411,13 @@ if __name__ == '__main__':
     ai_color = chess.BLACK if player_color == chess.WHITE else chess.WHITE
     print(f"Player chọn: {'Trắng' if player_color == chess.WHITE else 'Đen'}")
     print(f"AI chơi: {'Trắng' if ai_color == chess.WHITE else 'Đen'}")
+    print(f"Board will be {'flipped' if player_color == chess.BLACK else 'normal'} for player view")
     
     # Set up the game clock for smooth animation
     clock = pygame.time.Clock()
     
-    board = GUI_Board(*BOARD_SIZE)
+    # CREATE BOARD WITH PLAYER COLOR - IMPORTANT CHANGE
+    board = GUI_Board(*BOARD_SIZE, player_color=player_color)
     sequence = []
     move_history = []
     opening = True
@@ -411,7 +428,7 @@ if __name__ == '__main__':
     show_dialog = False  # Flag để kiểm soát hiển thị dialog
     frozen_screen = None  # Cache toàn bộ màn hình game khi dialog hiện
     
-    # ===== NẾUVỀ AI CHƠI TRẮNG THÌ THỰC HIỆN NƯỚC ĐI ĐẦU TIÊN =====
+    # ===== NẾU AI CHƠI TRẮNG THÌ THỰC HIỆN NƯỚC ĐI ĐẦU TIÊN =====
     if ai_color == chess.WHITE:
         print("AI (White) will make the first move...")
         # AI sẽ đi trong vòng lặp chính, không cần làm gì ở đây
@@ -600,8 +617,8 @@ if __name__ == '__main__':
                         ai_color = chess.BLACK if player_color == chess.WHITE else chess.WHITE
                         print(f"New game - Player: {'Trắng' if player_color == chess.WHITE else 'Đen'}, AI: {'Trắng' if ai_color == chess.WHITE else 'Đen'}")
 
-                        # Reset game
-                        board = GUI_Board(*BOARD_SIZE)
+                        # Reset game WITH NEW PLAYER COLOR - IMPORTANT CHANGE
+                        board = GUI_Board(*BOARD_SIZE, player_color=player_color)
                         sequence = []
                         move_history = []
                         opening = True
@@ -609,7 +626,7 @@ if __name__ == '__main__':
                         game_result = ""
                         show_dialog = False  # Ẩn dialog
                         frozen_screen = None  # Clear frozen screen
-                        print("Game reset!")
+                        print("Game reset with board orientation for player!")
                         trained_this_game = False
 
                         
@@ -715,18 +732,18 @@ if __name__ == '__main__':
                         saved_state = load_game_state()
                         if saved_state:
                             try:
-                                # Create new board and load state
-                                board = GUI_Board(*BOARD_SIZE)
-                                board.chess_board = chess.Board(saved_state['board_fen'])
-                                board.turn = saved_state['turn']
-                                move_history = saved_state['move_history']
-                                sequence = saved_state['sequence']
-                                
-                                # Load player color if available
+                                # Load player color first to set board orientation
                                 if 'player_color' in saved_state:
                                     player_color = saved_state['player_color']
                                     ai_color = chess.BLACK if player_color == chess.WHITE else chess.WHITE
                                     print(f"Loaded - Player: {'Trắng' if player_color == chess.WHITE else 'Đen'}, AI: {'Trắng' if ai_color == chess.WHITE else 'Đen'}")
+                                
+                                # Create new board with correct orientation
+                                board = GUI_Board(*BOARD_SIZE, player_color=player_color)
+                                board.chess_board = chess.Board(saved_state['board_fen'])
+                                board.turn = saved_state['turn']
+                                move_history = saved_state['move_history']
+                                sequence = saved_state['sequence']
                                 
                                 opening = len(sequence) < 6
                                 game_over = False
@@ -736,7 +753,7 @@ if __name__ == '__main__':
                                 
                                 # Update GUI board state to match chess board
                                 board.update_gui_from_chess_board()
-                                print("Game loaded successfully!")
+                                print("Game loaded successfully with correct board orientation!")
                             except Exception as e:
                                 print(f"Failed to load game: {e}")
                         else:

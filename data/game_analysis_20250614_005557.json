@@ -1,0 +1,39 @@
+{
+  "timestamp": "2025-06-14T00:55:57.606237",
+  "final_fen": "rnbqkbnr/pp1p1ppp/8/2p1Q3/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 3",
+  "move_history": [
+    "c7c5",
+    "g7g6",
+    "d7d6",
+    "c8d7",
+    "e7e6",
+    "a7a5",
+    "g8f6",
+    "e7e5",
+    "d8e7",
+    "e7e4",
+    "d7d6",
+    "e8d8",
+    "e7e5"
+  ],
+  "evaluation_history": [
+    66,
+    236,
+    483,
+    601,
+    297,
+    474,
+    902,
+    960,
+    542,
+    268,
+    1100,
+    369,
+    430,
+    542
+  ],
+  "result": "Player quit mid-game",
+  "game_length": 13,
+  "opening_used": 6,
+  "final_evaluation": 542
+}

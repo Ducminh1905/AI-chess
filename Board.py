@@ -60,13 +60,16 @@ class MoveHistory:
         self.positions.clear()
 
 class GUI_Board:
-    def __init__(self, width, height):
+    def __init__(self, width, height, player_color=chess.WHITE):
         self.width = width
         self.height = height
         self.tile_width = width // 8
         self.tile_height = height // 8
         self.selected_piece = None
         self.turn = chess.WHITE
+        self.player_color = player_color  # NEW: Store player color
+        self.flipped = (player_color == chess.BLACK)  # NEW: Flip board if player is black
+        
         self.config = [
             ['bR', 'bN', 'bB', 'bQ', 'bK', 'bB', 'bN', 'bR'],
             ['bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP', 'bP'],
@@ -110,6 +113,34 @@ class GUI_Board:
         self.time_black = 300.0
         self.increment = 3.0
 
+    def flip_board(self):
+        """Flip the board view"""
+        self.flipped = not self.flipped
+        self.update_gui_from_chess_board()
+        print(f"Board flipped: {self.flipped}")
+
+    def set_player_color(self, color):
+        """Set player color and adjust board orientation"""
+        self.player_color = color
+        self.flipped = (color == chess.BLACK)
+        self.update_gui_from_chess_board()
+        print(f"Player color set to: {'BLACK' if color == chess.BLACK else 'WHITE'}")
+        print(f"Board flipped: {self.flipped}")
+
+    def get_display_position(self, chess_pos):
+        """Convert chess position to display position based on board orientation"""
+        x, y = chess_pos
+        if self.flipped:
+            return (7 - x, 7 - y)
+        return (x, y)
+
+    def get_chess_position(self, display_pos):
+        """Convert display position to chess position based on board orientation"""
+        x, y = display_pos
+        if self.flipped:
+            return (7 - x, 7 - y)
+        return (x, y)
+
     def generate_squares(self):
         output = set()
         for y in range(8):
@@ -129,23 +160,26 @@ class GUI_Board:
         for y, row in enumerate(self.config):
             for x, piece in enumerate(row):
                 if piece != '':
-                    square = self.get_square_from_pos((x, y))
+                    # Get display position (may be flipped)
+                    display_pos = self.get_display_position((x, y))
+                    square = self.get_square_from_pos(display_pos)
+                    
                     # Set occupying piece in square based on config
                     if piece[1] == 'R':
-                        square.occupying_piece = Piece((x,y), chess.ROOK, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
+                        square.occupying_piece = Piece(display_pos, chess.ROOK, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
                     elif piece[1] == 'N':
-                        square.occupying_piece = Piece((x,y), chess.KNIGHT, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
+                        square.occupying_piece = Piece(display_pos, chess.KNIGHT, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
                     elif piece[1] == 'B':
-                        square.occupying_piece = Piece((x,y), chess.BISHOP, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
+                        square.occupying_piece = Piece(display_pos, chess.BISHOP, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
                     elif piece[1] == 'Q':
-                        square.occupying_piece = Piece((x,y), chess.QUEEN, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
+                        square.occupying_piece = Piece(display_pos, chess.QUEEN, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
                     elif piece[1] == 'K':
-                        square.occupying_piece = Piece((x,y), chess.KING, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
+                        square.occupying_piece = Piece(display_pos, chess.KING, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
                     elif piece[1] == 'P':
-                        square.occupying_piece = Piece((x,y), chess.PAWN, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
+                        square.occupying_piece = Piece(display_pos, chess.PAWN, chess.WHITE if piece[0] == 'w' else chess.BLACK, self)
     
     def update_gui_from_chess_board(self):
-        """Update GUI pieces to match chess board state"""
+        """Update GUI pieces to match chess board state with proper board orientation"""
         # Clear all pieces first
         for square in self.squares:
             square.occupying_piece = None
@@ -156,10 +190,14 @@ class GUI_Board:
             if piece:
                 file = chess.square_file(square)
                 rank = chess.square_rank(square)
-                gui_pos = (file, 7 - rank)  # Convert to GUI coordinates
-                gui_square = self.get_square_from_pos(gui_pos)
+                chess_pos = (file, 7 - rank)  # Convert to chess coordinates
+                
+                # Convert to display coordinates (may be flipped)
+                display_pos = self.get_display_position(chess_pos)
+                gui_square = self.get_square_from_pos(display_pos)
+                
                 if gui_square:
-                    gui_square.occupying_piece = Piece(gui_pos, piece.piece_type, piece.color, self)
+                    gui_square.occupying_piece = Piece(display_pos, piece.piece_type, piece.color, self)
     
     def get_possible_moves(self):
         res = set()
@@ -198,18 +236,22 @@ class GUI_Board:
         
         # Set new last move highlights
         if source_pos:
-            source_square = self.get_square_from_pos(source_pos)
+            # Convert chess position to display position
+            display_source = self.get_display_position(source_pos)
+            source_square = self.get_square_from_pos(display_source)
             if source_square:
                 source_square.last_move = True
                 self.last_move_source = source_square
-                print(f"Highlighting last move source: {source_pos}")
+                print(f"Highlighting last move source: {source_pos} -> display: {display_source}")
         
         if target_pos:
-            target_square = self.get_square_from_pos(target_pos)
+            # Convert chess position to display position
+            display_target = self.get_display_position(target_pos)
+            target_square = self.get_square_from_pos(display_target)
             if target_square:
                 target_square.last_move = True
                 self.last_move_target = target_square
-                print(f"Highlighting last move target: {target_pos}")
+                print(f"Highlighting last move target: {target_pos} -> display: {display_target}")
     
     def clear_last_move_highlight(self):
         """Clear all last move highlights"""
@@ -288,6 +330,10 @@ class GUI_Board:
             
             print(f"UNDO DEBUG: Restored chess board, turn = {'WHITE' if self.turn == chess.WHITE else 'BLACK'}")
             
+            # CRITICAL FIX: Clear transposition table after undo
+            self.transposition_table.clear()
+            print("UNDO DEBUG: Cleared transposition table to avoid stale cache")
+            
             # Clear tất cả GUI pieces
             for square in self.squares:
                 square.occupying_piece = None
@@ -298,18 +344,21 @@ class GUI_Board:
                 if hasattr(square, 'is_move_indicator'):
                     delattr(square, 'is_move_indicator')
             
-            # Restore pieces từ chess board
+            # Restore pieces từ chess board với board orientation
             pieces_restored = 0
             for chess_square in chess.SQUARES:
                 piece = self.chess_board.piece_at(chess_square)
                 if piece:
                     file = chess.square_file(chess_square)
                     rank = chess.square_rank(chess_square)
-                    gui_pos = (file, 7 - rank)  # Convert to GUI coordinates
+                    chess_pos = (file, 7 - rank)  # Convert to chess coordinates
                     
-                    gui_square = self.get_square_from_pos(gui_pos)
+                    # Convert to display coordinates (may be flipped)
+                    display_pos = self.get_display_position(chess_pos)
+                    gui_square = self.get_square_from_pos(display_pos)
+                    
                     if gui_square:
-                        new_piece = Piece(gui_pos, piece.piece_type, piece.color, self)
+                        new_piece = Piece(display_pos, piece.piece_type, piece.color, self)
                         gui_square.occupying_piece = new_piece
                         pieces_restored += 1
             
@@ -317,10 +366,10 @@ class GUI_Board:
             
             # Restore last move highlighting nếu có
             if target_state.get('last_move_source') and target_state.get('last_move_target'):
-                self.set_last_move_highlight(
-                    target_state['last_move_source'], 
-                    target_state['last_move_target']
-                )
+                # Convert stored positions back to chess coordinates for highlighting
+                chess_source = self.get_chess_position(target_state['last_move_source'])
+                chess_target = self.get_chess_position(target_state['last_move_target'])
+                self.set_last_move_highlight(chess_source, chess_target)
             else:
                 self.clear_last_move_highlight()
             
@@ -503,19 +552,27 @@ class GUI_Board:
         return border_surface
     
     def draw_coordinates(self, surface, font, border_width):
-        """Draw elegant coordinate labels"""
+        """Draw elegant coordinate labels with proper orientation"""
         text_color = (101, 67, 33)
         
-        # Files (a-h) - bottom
-        for i, letter in enumerate('abcdefgh'):
+        if self.flipped:
+            # Files (h-a) and ranks (1-8) when flipped for black player
+            files = 'hgfedcba'
+            ranks = [str(i) for i in range(1, 9)]
+        else:
+            # Files (a-h) and ranks (8-1) for white player
+            files = 'abcdefgh'
+            ranks = [str(i) for i in range(8, 0, -1)]
+        
+        # Files - bottom
+        for i, letter in enumerate(files):
             text = font.render(letter, True, text_color)
             x = border_width + i * self.tile_width + self.tile_width // 2 - text.get_width() // 2
             y = self.height + border_width + 5
             surface.blit(text, (x, y))
         
-        # Ranks (1-8) - left side
-        for i in range(8):
-            number = str(8 - i)
+        # Ranks - left side
+        for i, number in enumerate(ranks):
             text = font.render(number, True, text_color)
             x = border_width - 20
             y = border_width + i * self.tile_height + self.tile_height // 2 - text.get_height() // 2
@@ -590,7 +647,7 @@ class GUI_Board:
         # Blit main surface to board surface
         board_surface.blit(main_surface, (border_width, border_width))
         
-        # Draw coordinates
+        # Draw coordinates with proper orientation
         try:
             font = pygame.font.Font(None, 24)
             self.draw_coordinates(board_surface, font, border_width)
@@ -605,12 +662,20 @@ class Piece(chess.Piece):
     def __init__(self, pos, type:chess.PieceType, color:chess.Color, board:GUI_Board):
         super().__init__(type, color)
         self.pos = pos
-        self.coord = get_coord_from_pos(*self.pos)
         self.x = self.pos[0]
         self.y = self.pos[1]
         self.gui_board = board
         self.img = self.get_img()
         self.move_count = 0  # Track number of moves for this piece
+        
+        # Calculate coordinate based on board orientation
+        self.update_coord()
+    
+    def update_coord(self):
+        """Update coordinate based on current board orientation"""
+        # Convert display position to chess position
+        chess_pos = self.gui_board.get_chess_position(self.pos)
+        self.coord = get_coord_from_pos(*chess_pos)
     
     def get_img(self):
         img_path = 'data/imgs/'
@@ -636,9 +701,13 @@ class Piece(chess.Piece):
     def get_valid_moves(self):
         output = set()
         for move in self.get_moves():
-            sq_pos = get_pos_from_coord(move[2:4])
-            square = self.gui_board.get_square_from_pos(sq_pos)
-            output.add(square)
+            target_coord = move[2:4]
+            chess_pos = get_pos_from_coord(target_coord)
+            # Convert chess position to display position
+            display_pos = self.gui_board.get_display_position(chess_pos)
+            square = self.gui_board.get_square_from_pos(display_pos)
+            if square:
+                output.add(square)
         return output
 
     def move(self, square, force=False):
@@ -646,16 +715,30 @@ class Piece(chess.Piece):
         for i in self.gui_board.squares:
             i.highlight = False
         
+        # Convert square position back to chess coordinates for move validation
+        chess_pos = self.gui_board.get_chess_position(square.pos)
+        target_coord = get_coord_from_pos(*chess_pos)
+        
         mark_castling = False
         mark_en_passant = False
-        if self.piece_type == chess.KING and abs(square.x - self.x) == 2 and self.gui_board.chess_board.has_castling_rights(self.gui_board.turn):
+        
+        # Check for castling (using chess coordinates)
+        current_chess_pos = self.gui_board.get_chess_position(self.pos)
+        if (self.piece_type == chess.KING and 
+            abs(chess_pos[0] - current_chess_pos[0]) == 2 and 
+            self.gui_board.chess_board.has_castling_rights(self.gui_board.turn)):
             mark_castling = True
-            side = 'KING_SIDE' if square.x > self.x else 'QUEEN_SIDE'
-        if self.piece_type == chess.PAWN and abs(self.x - square.x) == 1 and abs(self.y - square.y) == 1 and square.occupying_piece == None:
+            side = 'KING_SIDE' if chess_pos[0] > current_chess_pos[0] else 'QUEEN_SIDE'
+        
+        # Check for en passant (using chess coordinates) 
+        if (self.piece_type == chess.PAWN and 
+            abs(current_chess_pos[0] - chess_pos[0]) == 1 and 
+            abs(current_chess_pos[1] - chess_pos[1]) == 1 and 
+            square.occupying_piece == None):
             mark_en_passant = True
         
         if square in self.get_valid_moves() or force:
-            print(f"MOVE DEBUG: Making move from {self.coord} to {get_coord_from_pos(*square.pos)}")
+            print(f"MOVE DEBUG: Making move from {self.coord} to {target_coord}")
             print(f"MOVE DEBUG: Force = {force}")
             print(f"MOVE DEBUG: Current turn before move: {'WHITE' if self.gui_board.turn == chess.WHITE else 'BLACK'}")
             
@@ -669,30 +752,30 @@ class Piece(chess.Piece):
             prev_square = self.gui_board.get_square_from_pos(self.pos)
             move_cur = self.coord
             
-            # Store positions for last move highlighting
-            source_pos = self.pos
-            target_pos = square.pos
+            # Store positions for last move highlighting (in chess coordinates)
+            source_chess_pos = self.gui_board.get_chess_position(self.pos)
+            target_chess_pos = self.gui_board.get_chess_position(square.pos)
             
             # Different approach for player vs bot moves
             if not force:
-                print(f"Player move with animation: {self.coord} -> {get_coord_from_pos(*square.pos)}")
+                print(f"Player move with animation: {self.coord} -> {target_coord}")
                 
                 # Start animation BEFORE any position updates
                 self.gui_board.start_animation(self, self.pos, square.pos)
                 
             # Update piece position (same for both player and bot)
             self.pos, self.x, self.y = square.pos, square.x, square.y
-            self.coord = get_coord_from_pos(*self.pos)
+            self.update_coord()  # Update coordinate based on new position
             
             # Update board state (same for both player and bot)
             prev_square.occupying_piece = None
             square.occupying_piece = self
             
-            # Set last move highlighting (clear old, set new)
-            self.gui_board.set_last_move_highlight(source_pos, target_pos)
+            # Set last move highlighting using chess coordinates
+            self.gui_board.set_last_move_highlight(source_chess_pos, target_chess_pos)
             
             self.gui_board.selected_piece = None
-            move_new = self.coord
+            move_new = target_coord
             self.move_count += 1
             
             # Handle pawn promotion
@@ -713,18 +796,39 @@ class Piece(chess.Piece):
             
             # Handle special moves
             if mark_en_passant:
-                captured_pawn_at = self.gui_board.get_square_from_pos((square.x, prev_square.y))
-                captured_pawn_at.occupying_piece = None
+                # Convert captured pawn position to display coordinates
+                captured_chess_pos = (chess_pos[0], current_chess_pos[1])
+                captured_display_pos = self.gui_board.get_display_position(captured_chess_pos)
+                captured_pawn_square = self.gui_board.get_square_from_pos(captured_display_pos)
+                if captured_pawn_square:
+                    captured_pawn_square.occupying_piece = None
             
             if mark_castling:
+                # Handle castling rook movement with board orientation
                 if self.gui_board.turn == chess.WHITE:
-                    rook_cur_pos = (7, 7) if side == 'KING_SIDE' else (0, 7)
-                    rook_new_pos = (5, 7) if side == 'KING_SIDE' else (3, 7)
+                    if side == 'KING_SIDE':
+                        rook_chess_cur = (7, 7)
+                        rook_chess_new = (5, 7)
+                    else:  # QUEEN_SIDE
+                        rook_chess_cur = (0, 7)
+                        rook_chess_new = (3, 7)
                 elif self.gui_board.turn == chess.BLACK:
-                    rook_cur_pos = (7, 0) if side == 'KING_SIDE' else (0, 0)
-                    rook_new_pos = (5, 0) if side == 'KING_SIDE' else (3, 0)
-                rook = self.gui_board.get_piece_from_pos(rook_cur_pos)
-                rook.move(self.gui_board.get_square_from_pos(rook_new_pos), force=True)
+                    if side == 'KING_SIDE':
+                        rook_chess_cur = (7, 0)
+                        rook_chess_new = (5, 0)
+                    else:  # QUEEN_SIDE
+                        rook_chess_cur = (0, 0)
+                        rook_chess_new = (3, 0)
+                
+                # Convert to display coordinates
+                rook_display_cur = self.gui_board.get_display_position(rook_chess_cur)
+                rook_display_new = self.gui_board.get_display_position(rook_chess_new)
+                
+                rook = self.gui_board.get_piece_from_pos(rook_display_cur)
+                if rook:
+                    target_square = self.gui_board.get_square_from_pos(rook_display_new)
+                    if target_square:
+                        rook.move(target_square, force=True)
             
             # Switch turns
             if not force:
@@ -737,5 +841,5 @@ class Piece(chess.Piece):
         
         else:
             self.gui_board.selected_piece = None
-            print(f"MOVE DEBUG: Invalid move attempted from {self.coord} to {get_coord_from_pos(*square.pos)}")
+            print(f"MOVE DEBUG: Invalid move attempted from {self.coord} to {target_coord}")
             return None
