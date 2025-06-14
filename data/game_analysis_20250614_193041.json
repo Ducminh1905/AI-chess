@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-06-14T19:30:41.666856",
+  "final_fen": "rnbqkbnr/pp1ppppp/8/2p5/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2",
+  "move_history": [
+    "e2e4",
+    "d2d4"
+  ],
+  "evaluation_history": [],
+  "result": "AI Loss",
+  "game_length": 2,
+  "final_evaluation": 0,
+  "ai_performance": {
+    "performance_mode": "adaptive",
+    "nn_usage_rate": 0.0,
+    "avg_eval_time_ms": 0.2018152177776716,
+    "max_eval_time_ms": 0.45059999683871865,
+    "total_evaluations": 74450,
+    "nn_available": false
+  }
+}

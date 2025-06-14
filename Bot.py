@@ -5,6 +5,7 @@ import json
 import numpy as np
 from datetime import datetime
 import os
+from NeuralNetwork import ChessNeuralNetwork
 
 squares = {
     chess.A8:(0,0), chess.B8:(0,1), chess.C8:(0,2), chess.D8:(0,3), chess.E8:(0,4), chess.F8:(0,5), chess.G8:(0,6), chess.H8:(0,7),
@@ -83,6 +84,8 @@ board_values_opening = {
     ]
 }
 
+
+
 # Endgame piece-square tables
 board_values_endgame = {
     chess.PAWN: [
@@ -115,7 +118,7 @@ openings = []
 INFINITY = 960240
 
 # Neural Network simulation (placeholder for real implementation)
-class SimpleNeuralNetwork:
+class NeuralNetwork:
     def __init__(self):
         self.weights = {}
         self.training_data = []
@@ -193,7 +196,7 @@ class SimpleNeuralNetwork:
         self.save_weights()
 
 # Initialize neural network
-neural_net = SimpleNeuralNetwork()
+neural_net = NeuralNetwork()
 
 def evaluate_mobility(board: chess.Board):
     """Evaluate piece mobility - FIXED VERSION"""
@@ -442,23 +445,37 @@ def is_draw(board: chess.Board):
     return board.is_stalemate() or board.is_seventyfive_moves() or board.is_fivefold_repetition() or board.is_insufficient_material()
 
 def minimax_search(board, depth=5, maximizing=False, use_neural_net=False):
-    """Enhanced minimax search with neural network support"""
+    """Enhanced minimax search with neural network support - FIXED FOR BOARD ROTATION"""
     global d, best_moves, nodes_count
     d = depth
     best_moves.clear()
     nodes_count = 0
 
+    print(f"MINIMAX DEBUG: Starting search with depth {depth}, maximizing={maximizing}")
+    print(f"MINIMAX DEBUG: Board flipped: {board.flipped}")
+    print(f"MINIMAX DEBUG: Player color: {'BLACK' if board.player_color == chess.BLACK else 'WHITE'}")
+
     if board.chess_board.is_game_over():
+        print("MINIMAX DEBUG: Game is over")
         return None
 
     tmp_board = board.chess_board.fen()
     
-    # Check transposition table
+    # CRITICAL FIX: Don't use cached checkmate results after undo
     try:
         board_hash = hash(tmp_board)
         cached_result = board.transposition_table.get(board_hash)
         if cached_result and cached_result['depth'] >= depth:
-            print(f"Using cached evaluation: {cached_result['evaluation']}")
+            cached_eval = cached_result['evaluation']
+            if abs(cached_eval) >= 99999:  # Checkmate evaluation
+                # Verify position is actually game over
+                if not board.chess_board.is_game_over():
+                    print(f"MINIMAX DEBUG: Ignoring invalid cached checkmate result: {cached_eval}")
+                    board.transposition_table.table.pop(board_hash, None)  # Remove invalid cache
+                else:
+                    print(f"Using valid cached checkmate result: {cached_eval}")
+            else:
+                print(f"Using cached evaluation: {cached_eval}")
     except:
         pass
     
@@ -470,15 +487,68 @@ def minimax_search(board, depth=5, maximizing=False, use_neural_net=False):
     except:
         pass
     
+    print(f"MINIMAX DEBUG: Best moves found: {best_moves}")
+    print(f"MINIMAX DEBUG: Best value: {best_value}")
+    
     if not best_moves:
-        return None
+        print("MINIMAX DEBUG: No best moves found!")
+        # EMERGENCY FIX: If no best moves, try to find any legal move
+        legal_moves = [move.uci() for move in board.chess_board.legal_moves]
+        if legal_moves:
+            print(f"MINIMAX DEBUG: Using random legal move as fallback: {legal_moves[0]}")
+            best_moves = [legal_moves[0]]
+        else:
+            print("MINIMAX DEBUG: No legal moves available!")
+            return None
         
     chosen_move = best_moves[rd.randint(0, len(best_moves) - 1)]
+    print(f"MINIMAX DEBUG: Chosen move: {chosen_move}")
+
+    # CRITICAL FIX: Find piece based on chess coordinates, not display coordinates
+    source_coord = chosen_move[0:2]
+    target_coord = chosen_move[2:4]
+    
+    print(f"MINIMAX DEBUG: Looking for piece at chess coord: {source_coord}")
+    
+    # Convert chess coordinates to display coordinates
+    source_chess_pos = Board.get_pos_from_coord(source_coord)
+    target_chess_pos = Board.get_pos_from_coord(target_coord)
+    
+    print(f"MINIMAX DEBUG: Chess positions - source: {source_chess_pos}, target: {target_chess_pos}")
+    
+    # Convert to display positions (account for board flip)
+    source_display_pos = board.get_display_position(source_chess_pos)
+    target_display_pos = board.get_display_position(target_chess_pos)
+    
+    print(f"MINIMAX DEBUG: Display positions - source: {source_display_pos}, target: {target_display_pos}")
+
+    # Find the piece at display position
+    best_piece = board.get_piece_from_pos(source_display_pos)
+    dst_sq = board.get_square_from_pos(target_display_pos)
+    
+    if best_piece is None:
+        print(f"MINIMAX ERROR: No piece found at display position {source_display_pos}")
+        print(f"MINIMAX ERROR: Available pieces:")
+        for square in board.squares:
+            if square.occupying_piece is not None:
+                piece_chess_pos = board.get_chess_position(square.pos)
+                piece_coord = Board.get_coord_from_pos(*piece_chess_pos)
+                print(f"  Piece at display {square.pos} -> chess {piece_chess_pos} -> coord {piece_coord}")
+        return None
+    
+    if dst_sq is None:
+        print(f"MINIMAX ERROR: No destination square found at display position {target_display_pos}")
+        return None
+    
+    print(f"MINIMAX DEBUG: Found piece: {best_piece.piece_type} at {source_display_pos}")
+    print(f"MINIMAX DEBUG: Moving to square at: {target_display_pos}")
 
     # Make the move
-    best_piece = board.get_piece_from_pos(Board.get_pos_from_coord(chosen_move[0:2]))
-    dst_sq = board.get_square_from_pos(Board.get_pos_from_coord(chosen_move[2:4]))
-    best_piece.move(dst_sq)
+    move_result = best_piece.move(dst_sq)
+    
+    if move_result is None:
+        print(f"MINIMAX ERROR: Move failed! Piece could not move from {source_display_pos} to {target_display_pos}")
+        return None
 
     # Store evaluation in history
     try:
@@ -491,6 +561,7 @@ def minimax_search(board, depth=5, maximizing=False, use_neural_net=False):
     print("Best move value found:", best_value)
     print("Best moves found:", *best_moves)
     print("Chosen move:", chosen_move)
+    print("Move executed successfully!")
     if use_neural_net:
         print("Neural network evaluation enabled")
     
@@ -508,13 +579,23 @@ def alpha_beta(board_fen, depth, a, b, maximizing, use_neural_net=False, transpo
 
     tmp_board = chess.Board(board_fen)
     
-    # Check transposition table
+    # Check transposition table - BUT VALIDATE THE RESULT
     if transposition_table:
         try:
             board_hash = hash(board_fen)
             cached_result = transposition_table.get(board_hash)
             if cached_result and cached_result['depth'] >= depth:
-                return cached_result['evaluation']
+                cached_eval = cached_result['evaluation']
+                # CRITICAL FIX: Validate cached checkmate results
+                if abs(cached_eval) >= 99999:  # This is a checkmate evaluation
+                    # Verify if the position is actually checkmate/stalemate
+                    if not tmp_board.is_game_over():
+                        print(f"ALPHA_BETA DEBUG: Cached checkmate result invalid for position, ignoring cache")
+                        # Don't return cached result, recalculate
+                    else:
+                        return cached_eval
+                else:
+                    return cached_eval
         except:
             pass
     
@@ -638,9 +719,12 @@ def initialize_openings():
             print(f"Created {len(openings)} basic opening lines")
 
 def opening_search(board, sequence: list):
-    """Enhanced opening search with learning"""
+    """Enhanced opening search with learning - FIXED FOR BOARD ROTATION"""
     global best_moves, openings
     best_moves.clear()
+
+    print(f"OPENING SEARCH DEBUG: Current sequence: {sequence}")
+    print(f"OPENING SEARCH DEBUG: Board flipped: {board.flipped}")
 
     matching_lines = []
     for line in openings[:]:  # Use slice to avoid modification during iteration
@@ -653,19 +737,53 @@ def opening_search(board, sequence: list):
             if line in openings:
                 openings.remove(line)
 
+    print(f"OPENING SEARCH DEBUG: Found {len(matching_lines)} matching lines")
+
     if matching_lines:
         # Choose move from matching lines
         best_moves = [move for line, move in matching_lines]
         chosen_move = best_moves[rd.randint(0, len(best_moves) - 1)]
         
-        best_piece = board.get_piece_from_pos(Board.get_pos_from_coord(chosen_move[0:2]))
-        dst_sq = board.get_square_from_pos(Board.get_pos_from_coord(chosen_move[2:4]))
-        best_piece.move(dst_sq)
+        print(f"OPENING SEARCH DEBUG: Chosen move: {chosen_move}")
+        
+        # CRITICAL FIX: Same as minimax - use chess coordinates to find pieces
+        source_coord = chosen_move[0:2]
+        target_coord = chosen_move[2:4]
+        
+        # Convert chess coordinates to display coordinates
+        source_chess_pos = Board.get_pos_from_coord(source_coord)
+        target_chess_pos = Board.get_pos_from_coord(target_coord)
+        
+        # Convert to display positions (account for board flip)
+        source_display_pos = board.get_display_position(source_chess_pos)
+        target_display_pos = board.get_display_position(target_chess_pos)
+        
+        print(f"OPENING SEARCH DEBUG: Chess positions - source: {source_chess_pos}, target: {target_chess_pos}")
+        print(f"OPENING SEARCH DEBUG: Display positions - source: {source_display_pos}, target: {target_display_pos}")
+
+        best_piece = board.get_piece_from_pos(source_display_pos)
+        dst_sq = board.get_square_from_pos(target_display_pos)
+        
+        if best_piece is None:
+            print(f"OPENING SEARCH ERROR: No piece found at display position {source_display_pos}")
+            return None
+        
+        if dst_sq is None:
+            print(f"OPENING SEARCH ERROR: No destination square found at display position {target_display_pos}")
+            return None
+
+        move_result = best_piece.move(dst_sq)
+        
+        if move_result is None:
+            print(f"OPENING SEARCH ERROR: Move failed!")
+            return None
 
         print("Book moves found:", best_moves)
         print("Chosen move:", chosen_move)
+        print("Opening move executed successfully!")
         return chosen_move
     else:
+        print("OPENING SEARCH DEBUG: No matching lines found")
         return None
 
 import os

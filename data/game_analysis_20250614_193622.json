@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-06-14T19:36:22.740349",
+  "final_fen": "r1b1kbnr/pppp1ppp/5q2/4n2Q/4P3/8/PPPP1PPP/RNB1KB1R w KQkq - 2 5",
+  "move_history": [
+    "e2e4",
+    "g1f3",
+    "f3e5",
+    "d1g4",
+    "b1c3",
+    "d1g4",
+    "d1h5"
+  ],
+  "evaluation_history": [
+    -256,
+    -1146,
+    -1252,
+    -1146,
+    -319
+  ],
+  "result": "AI Win",
+  "game_length": 7,
+  "opening_used": 6,
+  "final_evaluation": -319
+}

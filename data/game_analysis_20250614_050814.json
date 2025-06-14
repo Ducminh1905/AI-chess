@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-06-14T05:08:14.751841",
+  "final_fen": "rnb1kb1r/pp1ppppp/5n2/2p5/2B1P3/q7/PPPP1PPP/RNB1K1NR w KQkq - 0 5",
+  "move_history": [
+    "e2e4",
+    "d1f3",
+    "f1c4",
+    "c4f7",
+    "c4d5",
+    "c4d5",
+    "f3f5",
+    "f3a3"
+  ],
+  "evaluation_history": [
+    -71,
+    -93,
+    -227,
+    -215,
+    -215,
+    -152,
+    -77
+  ],
+  "result": "Player quit mid-game",
+  "game_length": 8,
+  "opening_used": 6,
+  "final_evaluation": -77
+}
