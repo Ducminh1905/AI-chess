@@ -63,8 +63,7 @@ if __name__ == "__main__":
     parser.add_argument('models_dir', help='Thư mục chứa file .npz')
     args = parser.parse_args()
 
-    print(f"Quét thư mục: {args.models_dir}")
-    nets = load_npz_models(args.models_dir)
+    nets = load_npz_models(args.data)
     print(f"Đã load {len(nets)} mô hình:\n")
     for name, net in nets.items():
         w_shapes = [w.shape for w in net.weights]
