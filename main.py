@@ -400,7 +400,7 @@ if __name__ == '__main__':
     
     # Create enhanced screen with side panel
     screen = pygame.display.set_mode((TOTAL_WIDTH, TOTAL_HEIGHT))
-    pygame.display.set_caption("Enhanced Luxury Chess Game with AI - Adaptive Board View")
+    pygame.display.set_caption("AI Chess")
     
     # ===== CHỌN MÀU QUÂN CHO NGƯỜI CHƠI =====
     player_color = show_color_selection_screen(screen, font)
